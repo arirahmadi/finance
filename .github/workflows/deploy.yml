@@ -1,4 +1,4 @@
-name: Deploy Website using FTP
+name: Deploy Website using FTP (ZIP Method)
 
 on:
   push:
@@ -22,20 +22,52 @@ jobs:
     - name: Install Composer Dependencies
       run: composer install --no-dev --optimize-autoloader
 
-    - name: Sync files via FTP
+    - name: Prepare Zip and Unzip Script
+      run: |
+        # Create unzip.php inside public directory
+        mkdir -p public
+        cat << 'EOF' > public/unzip.php
+        <?php
+        $zipFile = __DIR__ . '/../project.zip';
+        if (file_exists($zipFile)) {
+            $zip = new ZipArchive;
+            if ($zip->open($zipFile) === TRUE) {
+                $zip->extractTo(__DIR__ . '/../');
+                $zip->close();
+                echo 'SUCCESS';
+                unlink($zipFile);
+            } else {
+                echo 'ERROR: Failed to open zip';
+            }
+        } else {
+            echo 'ERROR: Zip file not found';
+        }
+        unlink(__FILE__);
+        EOF
+        
+        # Create the zip archive
+        zip -r project.zip . -x ".git*" -x ".github*" -x "node_modules/*" -x "tests/*" -x "phpunit.xml" -x "vite.config.js" -x "package.json" -x "package-lock.json"
+        
+        # Clean workspace to leave only project.zip and public/unzip.php
+        find . -maxdepth 1 ! -name 'project.zip' ! -name 'public' ! -name '.' -exec rm -rf {} +
+        find public -maxdepth 1 ! -name 'unzip.php' ! -name 'public' ! -name '.' -exec rm -rf {} +
+
+    - name: Sync ZIP via FTP
       uses: SamKirkland/FTP-Deploy-Action@v4.3.5
       with:
         server: ${{ secrets.FTP_SERVER }}
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
         server-dir: domains/berkahsinergigemilang.com/public_html/finance/
-        exclude: |
-          **/.git*
-          **/.git*/**
-          **/node_modules/**
-          .env
-          tests/**
-          phpunit.xml
-          vite.config.js
-          package.json
-          package-lock.json
+
+    - name: Execute Unzip via HTTP Request
+      run: |
+        echo "Executing unzip script on Hostinger..."
+        RESPONSE=$(curl -s -L --max-time 30 http://finance.berkahsinergigemilang.com/unzip.php)
+        echo "Response from server: $RESPONSE"
+        if [ "$RESPONSE" = "SUCCESS" ]; then
+          echo "Deployment successful!"
+        else
+          echo "Deployment failed or unzip script could not be executed: $RESPONSE"
+          exit 1
+        fi
