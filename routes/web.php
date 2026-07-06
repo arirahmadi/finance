@@ -39,8 +39,15 @@ Route::get('/run-setup', function () {
         
         echo "Running storage:link...<br>";
         try {
-            \Illuminate\Support\Facades\Artisan::call('storage:link');
-        } catch (\Exception $e) {
+            $target = storage_path('app/public');
+            $link = public_path('storage');
+            if (!file_exists($link)) {
+                @symlink($target, $link);
+                echo "Symlink created successfully!<br>";
+            } else {
+                echo "Symlink already exists.<br>";
+            }
+        } catch (\Throwable $e) {
             echo "Storage link note: " . $e->getMessage() . "<br>";
         }
         
