@@ -73,18 +73,13 @@ jobs:
         
         # Create the zip archive
         zip -r project.zip . -x ".git*" -x ".github*" -x "node_modules/*" -x "tests/*" -x "phpunit.xml" -x "vite.config.js" -x "package.json" -x "package-lock.json"
-        
-        # Clean workspace to leave only project.zip, unzip.php and public/unzip.php
-        find . -maxdepth 1 ! -name 'project.zip' ! -name 'unzip.php' ! -name 'public' ! -name '.' -exec rm -rf {} +
-        find public -maxdepth 1 ! -name 'unzip.php' ! -name 'public' ! -name '.' -exec rm -rf {} +
 
-    - name: Sync ZIP via FTP
-      uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-      with:
-        server: ${{ secrets.FTP_SERVER }}
-        username: ${{ secrets.FTP_USERNAME }}
-        password: ${{ secrets.FTP_PASSWORD }}
-        server-dir: domains/berkahsinergigemilang.com/public_html/finance/
+    - name: Install lftp
+      run: sudo apt-get update && sudo apt-get install -y lftp
+
+    - name: Upload ZIP via FTP
+      run: |
+        lftp -e "set ssl:verify-certificate no; open ${{ secrets.FTP_SERVER }}; user ${{ secrets.FTP_USERNAME }} '${{ secrets.FTP_PASSWORD }}'; mkdir -p domains/berkahsinergigemilang.com/public_html/finance/public; put -O domains/berkahsinergigemilang.com/public_html/finance/ project.zip; put -O domains/berkahsinergigemilang.com/public_html/finance/ unzip.php; put -O domains/berkahsinergigemilang.com/public_html/finance/public/ public/unzip.php; quit"
 
     - name: Execute Unzip via HTTP Request
       run: |
