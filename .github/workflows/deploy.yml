@@ -24,6 +24,29 @@ jobs:
 
     - name: Prepare Zip and Unzip Script
       run: |
+        # Create unzip.php in root directory
+        cat << 'EOF' > unzip.php
+        <?php
+        $zipFile = __DIR__ . '/project.zip';
+        if (file_exists($zipFile)) {
+            $zip = new ZipArchive;
+            if ($zip->open($zipFile) === TRUE) {
+                $zip->extractTo(__DIR__);
+                $zip->close();
+                echo 'SUCCESS';
+                unlink($zipFile);
+            } else {
+                echo 'ERROR: Failed to open zip';
+            }
+        } else {
+            echo 'ERROR: Zip file not found';
+        }
+        @unlink(__FILE__);
+        if (file_exists(__DIR__ . '/public/unzip.php')) {
+            @unlink(__DIR__ . '/public/unzip.php');
+        }
+        EOF
+
         # Create unzip.php inside public directory
         mkdir -p public
         cat << 'EOF' > public/unzip.php
@@ -42,14 +65,17 @@ jobs:
         } else {
             echo 'ERROR: Zip file not found';
         }
-        unlink(__FILE__);
+        @unlink(__FILE__);
+        if (file_exists(__DIR__ . '/../unzip.php')) {
+            @unlink(__DIR__ . '/../unzip.php');
+        }
         EOF
         
         # Create the zip archive
         zip -r project.zip . -x ".git*" -x ".github*" -x "node_modules/*" -x "tests/*" -x "phpunit.xml" -x "vite.config.js" -x "package.json" -x "package-lock.json"
         
-        # Clean workspace to leave only project.zip and public/unzip.php
-        find . -maxdepth 1 ! -name 'project.zip' ! -name 'public' ! -name '.' -exec rm -rf {} +
+        # Clean workspace to leave only project.zip, unzip.php and public/unzip.php
+        find . -maxdepth 1 ! -name 'project.zip' ! -name 'unzip.php' ! -name 'public' ! -name '.' -exec rm -rf {} +
         find public -maxdepth 1 ! -name 'unzip.php' ! -name 'public' ! -name '.' -exec rm -rf {} +
 
     - name: Sync ZIP via FTP
@@ -63,7 +89,14 @@ jobs:
     - name: Execute Unzip via HTTP Request
       run: |
         echo "Executing unzip script on Hostinger..."
-        RESPONSE=$(curl -s -L --max-time 30 http://finance.berkahsinergigemilang.com/unzip.php)
+        # Try both URLs (subdomain pointed to root vs subdomain pointed to /public)
+        RESPONSE=$(curl -s -L --max-time 15 http://finance.berkahsinergigemilang.com/unzip.php)
+        if [ "$RESPONSE" != "SUCCESS" ]; then
+          echo "Root url failed with response: $RESPONSE"
+          echo "Trying public/unzip.php URL..."
+          RESPONSE=$(curl -s -L --max-time 15 http://finance.berkahsinergigemilang.com/public/unzip.php)
+        fi
+        
         echo "Response from server: $RESPONSE"
         if [ "$RESPONSE" = "SUCCESS" ]; then
           echo "Deployment successful!"
