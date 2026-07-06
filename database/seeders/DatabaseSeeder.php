@@ -16,7 +16,7 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         // Create Owner
-        User::factory()->create([
+        User::create([
             'name' => 'Owner Finance',
             'email' => 'owner@finance.com',
             'password' => bcrypt('password123'),
@@ -24,7 +24,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // Create Staff
-        User::factory()->create([
+        User::create([
             'name' => 'Staff Finance',
             'email' => 'admin@finance.com',
             'password' => bcrypt('password123'),
