@@ -27,3 +27,25 @@ Route::middleware('auth')->group(function () {
     Route::post('/settlements/advance', [WebController::class, 'storeAdvance'])->name('web.settlements.storeAdvance');
     Route::post('/settlements/{id}/settle', [WebController::class, 'settleAdvance'])->name('web.settlements.settle');
 });
+
+// Temporary setup route for production (delete after running)
+Route::get('/run-setup', function () {
+    try {
+        echo "Generating app key...<br>";
+        \Illuminate\Support\Facades\Artisan::call('key:generate', ['--force' => true]);
+        
+        echo "Running migrate:fresh --seed...<br>";
+        \Illuminate\Support\Facades\Artisan::call('migrate:fresh', ['--force' => true, '--seed' => true]);
+        
+        echo "Running storage:link...<br>";
+        try {
+            \Illuminate\Support\Facades\Artisan::call('storage:link');
+        } catch (\Exception $e) {
+            echo "Storage link note: " . $e->getMessage() . "<br>";
+        }
+        
+        return "Setup successfully completed! Please delete this route from routes/web.php for security.";
+    } catch (\Exception $e) {
+        return "Setup failed: " . $e->getMessage();
+    }
+});
