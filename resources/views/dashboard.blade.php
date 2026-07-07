@@ -491,8 +491,8 @@
                                         <th>Nominal Uang Muka</th>
                                         <th>Sumber Kas</th>
                                         <th>Keterangan</th>
-                                        <th>Status</th>
                                         <th>Nominal Bon</th>
+                                        <th>Status</th>
                                         <th>Bon Fisik</th>
                                         <th>Aksi</th>
                                     </tr>
@@ -514,17 +514,17 @@
                                                 <td><span style="font-size: 0.85rem; color: var(--text-secondary);">{{ $adv->payment_source }}</span></td>
                                                 <td style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ $adv->description }}">{{ $adv->description }}</td>
                                                 <td>
-                                                    @if ($adv->advance_status === 'open')
-                                                        <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3);">Belum Dilaporkan</span>
-                                                    @else
-                                                        <span class="badge badge-in">Selesai (Settled)</span>
-                                                    @endif
-                                                </td>
-                                                <td>
                                                     @if ($adv->advance_status === 'settled')
                                                         <span class="amount-in">Rp {{ number_format($adv->settlement_amount, 0, ',', '.') }}</span>
                                                     @else
                                                         <span style="color: var(--text-muted);">-</span>
+                                                    @endif
+                                                </td>
+                                                <td>
+                                                    @if ($adv->advance_status === 'open')
+                                                        <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3);">Belum Dilaporkan</span>
+                                                    @else
+                                                        <span class="badge badge-in">Selesai (Settled)</span>
                                                     @endif
                                                 </td>
                                                 <td>
