@@ -539,41 +539,56 @@
                                                 <td>
                                                     <div style="display: flex; gap: 4px; align-items: center;">
                                                         @if ($adv->advance_status === 'open')
-                                                            @if (Auth::user()->hasPermission('edit_settlements'))
+                                                            @if (Auth::user()->hasPermission('process_settlements'))
                                                                 <button type="button" class="btn btn-success btn-sm" style="font-weight: 600; padding: 6px 12px; border-radius: 6px;" onclick="openSettleModal({{ $adv->id }}, '{{ $adv->transaction_number }}', {{ $adv->amount }}, '{{ addslashes($adv->recipient_name) }}')">
                                                                     Laporkan Bon
                                                                 </button>
                                                             @endif
-                                                            @if (Auth::user()->hasPermission('delete_settlements'))
-                                                                <button 
-                                                                    type="button" 
-                                                                    class="btn-action btn-action-delete" 
-                                                                    title="Hapus Advance"
-                                                                    onclick="confirmDeleteSettlement({{ $adv->id }}, '{{ $adv->transaction_number }}')"
-                                                                >
-                                                                    <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                                    </svg>
-                                                                </button>
-                                                            @endif
-                                                            @if (!Auth::user()->hasPermission('edit_settlements') && !Auth::user()->hasPermission('delete_settlements'))
-                                                                <span style="color: var(--text-muted); font-size: 0.8rem;">No Izin</span>
-                                                            @endif
-                                                        @else
-                                                            @if (Auth::user()->hasPermission('delete_settlements'))
-                                                                <button 
-                                                                    type="button" 
-                                                                    class="btn-action btn-action-delete" 
-                                                                    title="Hapus Advance"
-                                                                    onclick="confirmDeleteSettlement({{ $adv->id }}, '{{ $adv->transaction_number }}')"
-                                                                >
-                                                                    <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                                    </svg>
-                                                                </button>
-                                                            @else
-                                                                <span style="color: var(--text-muted); font-size: 0.85rem;">Selesai pada {{ $adv->settled_at ? \Carbon\Carbon::parse($adv->settled_at)->format('d/m/Y') : '' }}</span>
-                                                            @endif
+                                                        @endif
+
+                                                        @if (Auth::user()->hasPermission('edit_settlements'))
+                                                            <button 
+                                                                type="button" 
+                                                                class="btn-action btn-action-edit" 
+                                                                title="Ubah Uang Muka / Settlement"
+                                                                onclick="initiateEditSettlement(this)"
+                                                                data-adv="{{ json_encode([
+                                                                    'id' => $adv->id,
+                                                                    'transaction_number' => $adv->transaction_number,
+                                                                    'transaction_date' => $adv->transaction_date->format('Y-m-d'),
+                                                                    'recipient_name' => $adv->recipient_name,
+                                                                    'amount' => number_format($adv->amount, 0, ',', '.'),
+                                                                    'payment_account_id' => $adv->payment_account_id,
+                                                                    'description' => $adv->description,
+                                                                    'advance_status' => $adv->advance_status,
+                                                                    'expense_account_id' => $adv->expense_account_id ?? '',
+                                                                    'settlement_amount' => $adv->settlement_amount ? number_format($adv->settlement_amount, 0, ',', '.') : '',
+                                                                ]) }}"
+                                                            >
+                                                                <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                                </svg>
+                                                            </button>
+                                                        @endif
+
+                                                        @if (Auth::user()->hasPermission('delete_settlements'))
+                                                            <button 
+                                                                type="button" 
+                                                                class="btn-action btn-action-delete" 
+                                                                title="Hapus"
+                                                                onclick="confirmDeleteSettlement({{ $adv->id }}, '{{ $adv->transaction_number }}')"
+                                                            >
+                                                                <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                </svg>
+                                                            </button>
+                                                        @endif
+
+                                                        @if (
+                                                            ($adv->advance_status === 'open' && !Auth::user()->hasPermission('process_settlements') && !Auth::user()->hasPermission('edit_settlements') && !Auth::user()->hasPermission('delete_settlements')) ||
+                                                            ($adv->advance_status === 'settled' && !Auth::user()->hasPermission('edit_settlements') && !Auth::user()->hasPermission('delete_settlements'))
+                                                        )
+                                                            <span style="color: var(--text-muted); font-size: 0.8rem;">No Izin</span>
                                                         @endif
                                                     </div>
                                                 </td>
@@ -861,7 +876,10 @@
                                     <input type="checkbox" name="permissions[]" value="create_settlements" class="perm-checkbox" checked> Tambah Settlement (Uang Muka)
                                 </label>
                                 <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 0.9rem;">
-                                    <input type="checkbox" name="permissions[]" value="edit_settlements" class="perm-checkbox"> Proses Settlement (Settle)
+                                    <input type="checkbox" name="permissions[]" value="process_settlements" class="perm-checkbox"> Proses Settlement (Settle)
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 0.9rem;">
+                                    <input type="checkbox" name="permissions[]" value="edit_settlements" class="perm-checkbox"> Ubah Settlement (Edit)
                                 </label>
                                 <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 0.9rem;">
                                     <input type="checkbox" name="permissions[]" value="delete_settlements" class="perm-checkbox"> Hapus Settlement (Delete)
@@ -968,6 +986,75 @@
                 <div class="modal-footer">
                     <button type="button" onclick="closeSettleModal()" class="btn btn-secondary">Batal</button>
                     <button type="submit" class="btn btn-primary">Kirim Settlement</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Edit Settlement (Ubah Settlement) -->
+    <div id="editSettlementModal" class="modal-overlay">
+        <div class="modal-card glass-panel">
+            <div class="modal-header">
+                <h3>Ubah Data Settlement (Advance)</h3>
+                <button onclick="closeEditSettlementModal()" class="modal-close">&times;</button>
+            </div>
+            <form id="editSettlementForm" action="" method="POST" enctype="multipart/form-data">
+                @csrf
+                @method('PUT')
+                <div class="modal-body">
+                    <!-- Basic Advance Fields (Always Visible) -->
+                    <div class="form-group">
+                        <label class="form-label">Tanggal Pengeluaran Uang Muka</label>
+                        <input type="date" name="transaction_date" id="edit_sett_date" class="form-input" required>
+                    </div>
+                    <div class="form-group" style="margin-top: 12px;">
+                        <label class="form-label">Nama Penerima Uang Muka</label>
+                        <input type="text" name="recipient_name" id="edit_sett_recipient" class="form-input" required placeholder="Contoh: Budi Santoso">
+                    </div>
+                    <div class="form-group" style="margin-top: 12px;">
+                        <label class="form-label">Nominal Advance (Rupiah)</label>
+                        <input type="text" name="amount" id="edit_sett_amount" class="form-input rupiah-input" required placeholder="Contoh: 2.000.000" oninput="calculateEditSettlementDiff()">
+                    </div>
+                    <div class="form-group" style="margin-top: 12px;">
+                        <label class="form-label">Sumber Dana (Kas/Bank Asal)</label>
+                        <select name="payment_account_id" id="edit_sett_payment_account" class="form-input form-select" required>
+                            @foreach ($paymentAccounts as $acc)
+                                <option value="{{ $acc->id }}">{{ $acc->code }} - {{ $acc->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-top: 12px;">
+                        <label class="form-label">Tujuan Keperluan (Deskripsi)</label>
+                        <textarea name="description" id="edit_sett_description" class="form-input" required rows="3" style="resize: none;"></textarea>
+                    </div>
+
+                    <!-- Settlement Info (Only Visible if Already Settled) -->
+                    <div id="editSettlementDetailsSection" style="display: none;">
+                        <hr style="border: 0; border-top: 1px solid var(--border-glass); margin: 16px 0;">
+                        <div class="form-group">
+                            <label class="form-label">Nominal Riil Pembelian (Sesuai Bon)</label>
+                            <input type="text" name="settlement_amount" id="edit_settle_amount_input" class="form-input rupiah-input" placeholder="Contoh: 1.800.000" oninput="calculateEditSettlementDiff()">
+                            <span id="editSettlementDiffHelp" style="display: block; font-size: 0.8rem; margin-top: 4px; font-weight: 500;"></span>
+                        </div>
+                        <div class="form-group" style="margin-top: 12px;">
+                            <label class="form-label">Akun Beban Akuntansi (Target Pembukuan)</label>
+                            <select name="expense_account_id" id="edit_sett_expense_account" class="form-input form-select">
+                                <option value="" disabled selected>Pilih akun beban...</option>
+                                @foreach ($expenseAccounts as $acc)
+                                    <option value="{{ $acc->id }}">{{ $acc->code }} - {{ $acc->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-top: 12px;">
+                            <label class="form-label">Ubah Bukti Bon Fisik (Opsional)</label>
+                            <input type="file" name="receipt" class="form-input" accept="image/*,application/pdf">
+                            <span style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-top: 2px;">Kosongkan jika tidak ingin mengubah bukti bon. Max: 5MB</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" onclick="closeEditSettlementModal()" class="btn btn-secondary">Batal</button>
+                    <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
                 </div>
             </form>
         </div>
@@ -1437,6 +1524,75 @@
                 
                 form.appendChild(tabInput);
                 form.submit();
+            }
+        }
+
+        function initiateEditSettlement(btn) {
+            try {
+                const adv = JSON.parse(btn.getAttribute('data-adv'));
+                
+                const form = document.getElementById('editSettlementForm');
+                form.action = `/settlements/${adv.id}`;
+
+                document.getElementById('edit_sett_date').value = adv.transaction_date;
+                document.getElementById('edit_sett_recipient').value = adv.recipient_name;
+                document.getElementById('edit_sett_amount').value = adv.amount;
+                document.getElementById('edit_sett_payment_account').value = adv.payment_account_id;
+                document.getElementById('edit_sett_description').value = adv.description;
+
+                const detailsSection = document.getElementById('editSettlementDetailsSection');
+                const settleAmountInput = document.getElementById('edit_settle_amount_input');
+                const expenseAccountInput = document.getElementById('edit_sett_expense_account');
+
+                if (adv.advance_status === 'settled') {
+                    detailsSection.style.display = 'block';
+                    settleAmountInput.value = adv.settlement_amount;
+                    expenseAccountInput.value = adv.expense_account_id;
+                    settleAmountInput.setAttribute('required', 'required');
+                    expenseAccountInput.setAttribute('required', 'required');
+                    calculateEditSettlementDiff();
+                } else {
+                    detailsSection.style.display = 'none';
+                    settleAmountInput.value = '';
+                    expenseAccountInput.value = '';
+                    settleAmountInput.removeAttribute('required');
+                    expenseAccountInput.removeAttribute('required');
+                }
+
+                document.getElementById('editSettlementModal').classList.add('active');
+            } catch (e) {
+                console.error("Gagal melakukan parse data settlement: ", e);
+                alert("Terjadi kesalahan saat memuat data settlement.");
+            }
+        }
+
+        function closeEditSettlementModal() {
+            document.getElementById('editSettlementModal').classList.remove('active');
+        }
+
+        function calculateEditSettlementDiff() {
+            const advAmountRaw = document.getElementById('edit_sett_amount').value;
+            const settAmountRaw = document.getElementById('edit_settle_amount_input').value;
+
+            const advAmount = parseFloat(advAmountRaw.replace(/\./g, '')) || 0;
+            const settAmount = parseFloat(settAmountRaw.replace(/\./g, '')) || 0;
+
+            const diffHelp = document.getElementById('editSettlementDiffHelp');
+            if (!settAmount) {
+                diffHelp.innerText = '';
+                return;
+            }
+
+            const diff = settAmount - advAmount;
+            if (diff > 0) {
+                diffHelp.style.color = '#fca5a5'; // Light red
+                diffHelp.innerText = `Kurang bayar: Perusahaan membayar sisa Rp ${new Intl.NumberFormat('id-ID').format(diff)} ke Karyawan.`;
+            } else if (diff < 0) {
+                diffHelp.style.color = '#86efac'; // Light green
+                diffHelp.innerText = `Lebih bayar: Karyawan mengembalikan sisa Rp ${new Intl.NumberFormat('id-ID').format(Math.abs(diff))} ke Kas.`;
+            } else {
+                diffHelp.style.color = '#e2e8f0'; // Off-white
+                diffHelp.innerText = 'Pas: Nominal Riil sama dengan Nominal Advance.';
             }
         }
 

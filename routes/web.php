@@ -26,6 +26,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/settlements', [WebController::class, 'indexSettlements'])->name('web.settlements.index');
     Route::post('/settlements/advance', [WebController::class, 'storeAdvance'])->name('web.settlements.storeAdvance');
     Route::post('/settlements/{id}/settle', [WebController::class, 'settleAdvance'])->name('web.settlements.settle');
+    Route::put('/settlements/{id}', [WebController::class, 'editSettlement'])->name('web.settlements.update');
     Route::delete('/settlements/bulk', [WebController::class, 'bulkDeleteSettlement'])->name('web.settlements.bulkDestroy');
     Route::delete('/settlements/{id}', [WebController::class, 'deleteSettlement'])->name('web.settlements.destroy');
 });

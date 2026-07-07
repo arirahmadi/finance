@@ -287,7 +287,7 @@ class SettlementAndPermissionTest extends TestCase
         $response->assertSessionHasErrors(['auth']);
 
         // Access allowed
-        $this->staff->update(['permissions' => ['view_settlements', 'edit_settlements']]);
+        $this->staff->update(['permissions' => ['view_settlements', 'process_settlements']]);
         $response = $this->actingAs($this->staff)->post('/settlements/' . $tx->id . '/settle', [
             'settlement_amount' => 1000.00,
             'expense_account_id' => $this->expenseAccount->id,
@@ -354,5 +354,104 @@ class SettlementAndPermissionTest extends TestCase
         $response->assertSessionHas('success');
         $this->assertDatabaseMissing('transactions', ['id' => $tx1->id]);
         $this->assertDatabaseMissing('transactions', ['id' => $tx2->id]);
+    }
+
+    /**
+     * Test edit settlement / advance.
+     */
+    public function test_edit_settlement(): void
+    {
+        // Create an open advance
+        $tx = Transaction::create([
+            'transaction_number' => 'TX-ADV-EDIT-TEST',
+            'transaction_date' => now(),
+            'description' => 'Original description',
+            'recipient_name' => 'Original recipient',
+            'is_advance' => true,
+            'advance_status' => 'open',
+            'created_by' => $this->owner->id,
+        ]);
+
+        JournalEntry::create(['transaction_id' => $tx->id, 'account_id' => $this->advanceAccount->id, 'type' => 'debit', 'amount' => 1000.00]);
+        JournalEntry::create(['transaction_id' => $tx->id, 'account_id' => $this->cashAccount->id, 'type' => 'credit', 'amount' => 1000.00]);
+
+        // 1. Try editing without edit_settlements permission
+        $response = $this->actingAs($this->staff)->put('/settlements/' . $tx->id, [
+            'transaction_date' => now()->format('Y-m-d'),
+            'recipient_name' => 'Staff Edit Attempt',
+            'amount' => 1200.00,
+            'payment_account_id' => $this->cashAccount->id,
+            'description' => 'Staff edit attempt desc',
+        ]);
+        $response->assertStatus(302);
+        $response->assertSessionHasErrors(['auth']);
+        $this->assertDatabaseHas('transactions', ['id' => $tx->id, 'recipient_name' => 'Original recipient']);
+
+        // 2. Edit with edit_settlements permission (Open Advance)
+        $this->staff->update(['permissions' => ['edit_settlements']]);
+        $response = $this->actingAs($this->staff)->put('/settlements/' . $tx->id, [
+            'transaction_date' => now()->format('Y-m-d'),
+            'recipient_name' => 'Staff Edit Allowed',
+            'amount' => 1200.00,
+            'payment_account_id' => $this->cashAccount->id,
+            'description' => 'Staff edit allowed desc',
+        ]);
+        $response->assertStatus(302);
+        $response->assertSessionHas('success');
+        $this->assertDatabaseHas('transactions', ['id' => $tx->id, 'recipient_name' => 'Staff Edit Allowed']);
+
+        // Verify Jurnal entries updated correctly
+        $this->assertDatabaseHas('journal_entries', ['transaction_id' => $tx->id, 'account_id' => $this->advanceAccount->id, 'type' => 'debit', 'amount' => 1200.00]);
+        $this->assertDatabaseHas('journal_entries', ['transaction_id' => $tx->id, 'account_id' => $this->cashAccount->id, 'type' => 'credit', 'amount' => 1200.00]);
+
+        // 3. Settle it so we can test editing settled state
+        $this->staff->update(['permissions' => ['process_settlements']]);
+        Storage::fake('public');
+        $file = UploadedFile::fake()->image('receipt.jpg', 300, 300);
+        $this->actingAs($this->staff)->post('/settlements/' . $tx->id . '/settle', [
+            'settlement_amount' => 1500.00,
+            'expense_account_id' => $this->expenseAccount->id,
+            'receipt' => $file,
+        ]);
+
+        // 4. Edit settled state (edit_settlements permission)
+        $this->staff->update(['permissions' => ['edit_settlements']]);
+        $newFile = UploadedFile::fake()->image('new_receipt.jpg', 400, 400);
+        $response = $this->actingAs($this->staff)->put('/settlements/' . $tx->id, [
+            'transaction_date' => now()->format('Y-m-d'),
+            'recipient_name' => 'Staff Edit Settled',
+            'amount' => 1200.00, // advance amount unchanged
+            'payment_account_id' => $this->cashAccount->id,
+            'description' => 'Staff edit settled desc',
+            'settlement_amount' => 1400.00, // settlement amount changed (original 1500)
+            'expense_account_id' => $this->expenseAccount->id,
+            'receipt' => $newFile,
+        ]);
+        $response->assertStatus(302);
+        $response->assertSessionHas('success');
+
+        // Check updated fields
+        $this->assertDatabaseHas('transactions', [
+            'id' => $tx->id,
+            'recipient_name' => 'Staff Edit Settled',
+            'settlement_amount' => 1400.00,
+            'advance_status' => 'settled',
+        ]);
+
+        // Check Jurnal entries adjusted correctly:
+        // Debit: Beban Server (1400.00)
+        $this->assertDatabaseHas('journal_entries', [
+            'transaction_id' => $tx->id,
+            'account_id' => $this->expenseAccount->id,
+            'type' => 'debit',
+            'amount' => 1400.00
+        ]);
+        // Credit: Kas Utama (200.00) -- difference 1400 - 1200 = 200
+        $this->assertDatabaseHas('journal_entries', [
+            'transaction_id' => $tx->id,
+            'account_id' => $this->cashAccount->id,
+            'type' => 'credit',
+            'amount' => 200.00
+        ]);
     }
 }

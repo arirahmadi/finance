@@ -13,6 +13,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -158,17 +159,19 @@ class WebController extends Controller
 
         $totalOutstanding = 0;
         $totalSettled = 0;
-
         $formattedAdvances = $advances->map(function ($tx) use (&$totalOutstanding, &$totalSettled) {
             $amount = 0;
             $paymentSource = '';
             $paymentAccountId = null;
-
+            $expenseAccountId = null;
             foreach ($tx->journalEntries as $entry) {
                 if (Str::startsWith($entry->account->code, '11') && $entry->type === 'credit') {
                     $paymentSource = $entry->account->name;
                     $paymentAccountId = $entry->account_id;
                     $amount = floatval($entry->amount);
+                }
+                if (Str::startsWith($entry->account->code, '51') && $entry->type === 'debit') {
+                    $expenseAccountId = $entry->account_id;
                 }
             }
 
@@ -201,6 +204,7 @@ class WebController extends Controller
                 'attachment' => $settlementAttachment,
                 'creator' => $tx->creator->name ?? null,
                 'recipient_name' => $tx->recipient_name,
+                'expense_account_id' => $expenseAccountId,
             ];
         });
 
@@ -701,7 +705,7 @@ class WebController extends Controller
      */
     public function settleAdvance(Request $request, int $id): RedirectResponse
     {
-        if (!Auth::user()->hasPermission('edit_settlements')) {
+        if (!Auth::user()->hasPermission('process_settlements')) {
             return back()->withErrors(['auth' => 'Akses Ditolak: Anda tidak memiliki izin untuk memproses settlement.']);
         }
 
@@ -794,6 +798,147 @@ class WebController extends Controller
         });
 
         return redirect()->route('dashboard', ['activeTab' => 'settlements'])->with('success', 'Settlement Uang Muka berhasil diselesaikan dan dicatat!');
+    }
+
+    /**
+     * Edit an existing settlement / advance payment.
+     */
+    public function editSettlement(Request $request, int $id): RedirectResponse
+    {
+        if (!Auth::user()->hasPermission('edit_settlements')) {
+            return back()->withErrors(['auth' => 'Akses Ditolak: Anda tidak memiliki izin untuk mengubah data settlement.']);
+        }
+
+        $tx = Transaction::findOrFail($id);
+        if (!$tx->is_advance) {
+            return back()->withErrors(['settlement' => 'Transaksi ini bukan uang muka.']);
+        }
+
+        $isSettled = $tx->advance_status === 'settled';
+
+        $rules = [
+            'transaction_date' => ['required', 'date'],
+            'recipient_name' => ['required', 'string', 'max:100'],
+            'amount' => ['required', 'numeric', 'min:0.01'],
+            'payment_account_id' => ['required', 'exists:accounts,id'],
+            'description' => ['required', 'string', 'max:500'],
+        ];
+
+        if ($isSettled) {
+            $rules['expense_account_id'] = ['required', 'exists:accounts,id'];
+            $rules['settlement_amount'] = ['required', 'numeric', 'min:0.01'];
+            $rules['receipt'] = ['nullable', 'file', 'mimes:jpeg,png,jpg,pdf', 'max:5120'];
+        }
+
+        $request->validate($rules);
+
+        $date = Carbon::parse($request->transaction_date);
+
+        DB::transaction(function () use ($request, $tx, $date, $isSettled) {
+            // 1. Update basic fields in Transaction
+            $txData = [
+                'transaction_date' => $date,
+                'recipient_name' => $request->recipient_name,
+                'description' => $request->description,
+            ];
+
+            if ($isSettled) {
+                $txData['settlement_amount'] = floatval($request->settlement_amount);
+
+                // Handle file upload replacement if present
+                if ($request->hasFile('receipt')) {
+                    // Delete old attachments
+                    foreach ($tx->attachments as $oldAtt) {
+                        if (Storage::disk('public')->exists($oldAtt->file_path)) {
+                            Storage::disk('public')->delete($oldAtt->file_path);
+                        }
+                        $oldAtt->delete();
+                    }
+
+                    $file = $request->file('receipt');
+                    $filename = Str::uuid() . '.' . $file->getClientOriginalExtension();
+                    $path = $file->storeAs('receipts', $filename, 'public');
+
+                    Attachment::create([
+                        'transaction_id' => $tx->id,
+                        'file_path' => $path,
+                        'original_name' => $file->getClientOriginalName(),
+                        'file_size' => $file->getSize(),
+                    ]);
+                }
+            }
+
+            $tx->update($txData);
+
+            // 2. Clear old JournalEntries to recreate them cleanly
+            JournalEntry::where('transaction_id', $tx->id)->delete();
+
+            // 3. Recreate JournalEntries
+            $advanceAccount = Account::where('code', '1202')->first();
+            if (!$advanceAccount) {
+                $advanceAccount = Account::create(['code' => '1202', 'name' => 'Uang Muka Pembelian', 'type' => 'asset']);
+            }
+
+            // Debit 1202 (Advance Asset account)
+            JournalEntry::create([
+                'transaction_id' => $tx->id,
+                'account_id' => $advanceAccount->id,
+                'type' => 'debit',
+                'amount' => floatval($request->amount),
+            ]);
+
+            // Credit chosen Cash/Bank source
+            JournalEntry::create([
+                'transaction_id' => $tx->id,
+                'account_id' => $request->payment_account_id,
+                'type' => 'credit',
+                'amount' => floatval($request->amount),
+            ]);
+
+            // If settled, recreate settlement entries
+            if ($isSettled) {
+                $settlementAmount = floatval($request->settlement_amount);
+                $originalAmount = floatval($request->amount);
+
+                // a. Debit Expense account (Actual cost from receipt)
+                JournalEntry::create([
+                    'transaction_id' => $tx->id,
+                    'account_id' => $request->expense_account_id,
+                    'type' => 'debit',
+                    'amount' => $settlementAmount,
+                ]);
+
+                // b. Credit 1202 - Uang Muka Pembelian (Clearing the asset)
+                JournalEntry::create([
+                    'transaction_id' => $tx->id,
+                    'account_id' => $advanceAccount->id,
+                    'type' => 'credit',
+                    'amount' => $originalAmount,
+                ]);
+
+                // c. Adjust Cash account if there's difference
+                $difference = $settlementAmount - $originalAmount;
+                if ($difference > 0) {
+                    // Underpaid: Credit Cash account with difference
+                    JournalEntry::create([
+                        'transaction_id' => $tx->id,
+                        'account_id' => $request->payment_account_id,
+                        'type' => 'credit',
+                        'amount' => $difference,
+                    ]);
+                } elseif ($difference < 0) {
+                    // Overpaid: Debit Cash account with difference
+                    JournalEntry::create([
+                        'transaction_id' => $tx->id,
+                        'account_id' => $request->payment_account_id,
+                        'type' => 'debit',
+                        'amount' => abs($difference),
+                    ]);
+                }
+            }
+        });
+
+        return redirect()->route('dashboard', ['activeTab' => 'settlements'])->with('success', 'Data Settlement berhasil diperbarui!');
     }
 
     /**
