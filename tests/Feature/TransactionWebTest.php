@@ -138,4 +138,36 @@ class TransactionWebTest extends TestCase
         // Check DB still has transaction
         $this->assertDatabaseHas('transactions', ['id' => $tx->id]);
     }
+
+    /**
+     * Test that the fallback storage route serves files and blocks traversal.
+     */
+    public function test_fallback_storage_route_serves_files_and_blocks_traversal(): void
+    {
+        $testFile = storage_path('app/public/receipts/test_unit.pdf');
+        $dir = dirname($testFile);
+        if (!is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+        file_put_contents($testFile, 'PDF CONTENT');
+
+        try {
+            // Test normal access
+            $response = $this->get('/attachments/receipts/test_unit.pdf');
+            $response->assertStatus(200);
+            $this->assertEquals($testFile, $response->getFile()->getPathname());
+
+            // Test non-existent file
+            $response = $this->get('/attachments/receipts/doesnotexist.pdf');
+            $response->assertStatus(404);
+
+            // Test directory traversal attempt
+            $response = $this->get('/attachments/../../etc/passwd');
+            $response->assertStatus(403);
+        } finally {
+            if (file_exists($testFile)) {
+                unlink($testFile);
+            }
+        }
+    }
 }

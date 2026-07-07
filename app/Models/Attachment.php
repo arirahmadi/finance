@@ -22,6 +22,6 @@ class Attachment extends Model
 
     public function getUrlAttribute(): string
     {
-        return asset('storage/' . $this->file_path);
+        return route('web.attachments.show', ['path' => $this->file_path]);
     }
 }

@@ -28,6 +28,18 @@ Route::middleware('auth')->group(function () {
     Route::post('/settlements/{id}/settle', [WebController::class, 'settleAdvance'])->name('web.settlements.settle');
 });
 
+// Fallback route for viewing attachments (since PHP symlink() is disabled on Hostinger)
+Route::get('/attachments/{path}', function ($path) {
+    if (str_contains($path, '..')) {
+        abort(403, 'Akses Ditolak.');
+    }
+    $filePath = storage_path('app/public/' . $path);
+    if (!file_exists($filePath)) {
+        abort(404);
+    }
+    return response()->file($filePath);
+})->where('path', '.*')->name('web.attachments.show');
+
 // Temporary setup route for production (delete after running)
 Route::get('/run-setup', function () {
     try {
