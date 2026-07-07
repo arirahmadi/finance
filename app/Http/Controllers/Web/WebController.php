@@ -627,6 +627,9 @@ class WebController extends Controller
      */
     public function indexSettlements(): RedirectResponse
     {
+        if (!Auth::user()->hasPermission('view_settlements')) {
+            return redirect()->route('dashboard')->withErrors(['auth' => 'Akses Ditolak: Anda tidak memiliki izin untuk melihat halaman settlement.']);
+        }
         return redirect()->route('dashboard', ['activeTab' => 'settlements']);
     }
 
@@ -635,6 +638,10 @@ class WebController extends Controller
      */
     public function storeAdvance(Request $request): RedirectResponse
     {
+        if (!Auth::user()->hasPermission('create_settlements')) {
+            return back()->withErrors(['auth' => 'Akses Ditolak: Anda tidak memiliki izin untuk membuat uang muka (advance).']);
+        }
+
         $request->validate([
             'amount' => ['required', 'numeric', 'min:0.01'],
             'payment_account_id' => ['required', 'exists:accounts,id'],
@@ -694,6 +701,10 @@ class WebController extends Controller
      */
     public function settleAdvance(Request $request, int $id): RedirectResponse
     {
+        if (!Auth::user()->hasPermission('edit_settlements')) {
+            return back()->withErrors(['auth' => 'Akses Ditolak: Anda tidak memiliki izin untuk memproses settlement.']);
+        }
+
         $request->validate([
             'settlement_amount' => ['required', 'numeric', 'min:0.01'],
             'expense_account_id' => ['required', 'exists:accounts,id'],
@@ -783,5 +794,65 @@ class WebController extends Controller
         });
 
         return redirect()->route('dashboard', ['activeTab' => 'settlements'])->with('success', 'Settlement Uang Muka berhasil diselesaikan dan dicatat!');
+    }
+
+    /**
+     * Remove the specified settlement from storage.
+     */
+    public function deleteSettlement(Request $request, int $id): RedirectResponse
+    {
+        if (!Auth::user()->hasPermission('delete_settlements')) {
+            return back()->withErrors(['auth' => 'Akses Ditolak: Anda tidak memiliki izin untuk menghapus settlement.']);
+        }
+
+        $tx = Transaction::with('attachments')->findOrFail($id);
+        if (!$tx->is_advance) {
+            return back()->withErrors(['settlement' => 'Transaksi ini bukan uang muka.']);
+        }
+
+        DB::transaction(function () use ($tx) {
+            // Delete physical receipt files first
+            foreach ($tx->attachments as $attachment) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($attachment->file_path);
+            }
+
+            // Delete transaction (which automatically cascades to journal entries & attachments)
+            $tx->delete();
+        });
+
+        return redirect()->route('dashboard', ['activeTab' => 'settlements'])->with('success', 'Transaksi Uang Muka (Settlement) berhasil dihapus!');
+    }
+
+    /**
+     * Remove multiple settlements from storage.
+     */
+    public function bulkDeleteSettlement(Request $request): RedirectResponse
+    {
+        if (!Auth::user()->hasPermission('delete_settlements')) {
+            return back()->withErrors(['auth' => 'Akses Ditolak: Anda tidak memiliki izin untuk menghapus settlement.']);
+        }
+
+        $ids = $request->input('ids');
+        if (empty($ids) || !is_array($ids)) {
+            return back()->withErrors(['bulk' => 'Pilih setidaknya satu settlement untuk dihapus.']);
+        }
+
+        DB::transaction(function () use ($ids) {
+            $transactions = Transaction::with('attachments')
+                ->whereIn('id', $ids)
+                ->where('is_advance', true)
+                ->get();
+
+            foreach ($transactions as $tx) {
+                // Delete physical receipt files
+                foreach ($tx->attachments as $attachment) {
+                    \Illuminate\Support\Facades\Storage::disk('public')->delete($attachment->file_path);
+                }
+                // Delete transaction (which automatically cascades to journal entries & attachments)
+                $tx->delete();
+            }
+        });
+
+        return redirect()->route('dashboard', ['activeTab' => 'settlements'])->with('success', 'Settlement terpilih berhasil dihapus!');
     }
 }

@@ -89,18 +89,22 @@
                     </svg>
                     <span>Dashboard</span>
                 </div>
-                <div onclick="switchTab('transactions'); closeSidebar();" id="nav-transactions" class="sidebar-nav-item">
-                    <svg style="width:22px;height:22px;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                    </svg>
-                    <span>Transaksi</span>
-                </div>
-                <div onclick="switchTab('settlements'); closeSidebar();" id="nav-settlements" class="sidebar-nav-item">
-                    <svg style="width:22px;height:22px;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                    </svg>
-                    <span>Settlement</span>
-                </div>
+                @if (Auth::user()->hasPermission('view_transactions'))
+                    <div onclick="switchTab('transactions'); closeSidebar();" id="nav-transactions" class="sidebar-nav-item">
+                        <svg style="width:22px;height:22px;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                        </svg>
+                        <span>Transaksi</span>
+                    </div>
+                @endif
+                @if (Auth::user()->hasPermission('view_settlements'))
+                    <div onclick="switchTab('settlements'); closeSidebar();" id="nav-settlements" class="sidebar-nav-item">
+                        <svg style="width:22px;height:22px;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                        <span>Settlement</span>
+                    </div>
+                @endif
                 @if (Auth::user()->role === 'owner')
                     <div onclick="switchTab('users'); closeSidebar();" id="nav-users" class="sidebar-nav-item">
                         <svg style="width:22px;height:22px;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -451,8 +455,18 @@
                         </div>
                     </section>
 
-                    <div class="action-filter-bar" style="margin-top: 24px; justify-content: flex-end;">
-                        @if (Auth::user()->hasPermission('create_transactions'))
+                    <div class="action-filter-bar" style="margin-top: 24px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            @if (Auth::user()->hasPermission('delete_settlements'))
+                                <button id="btnDeleteBulkSettlements" type="button" class="btn btn-danger" style="display: none; height: 38px; align-items: center; gap: 6px; padding: 0 16px; border-radius: 8px; font-size: 0.85rem; font-weight: 600;" onclick="submitBulkDeleteSettlements()">
+                                    <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                    Hapus Terpilih (<span id="selectedSettlementCount">0</span>)
+                                </button>
+                            @endif
+                        </div>
+                        @if (Auth::user()->hasPermission('create_settlements'))
                             <button onclick="openAdvanceModal()" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px;">
                                 <span style="font-size: 1.1rem; line-height: 1;">+</span> Buat Uang Muka (Advance)
                             </button>
@@ -467,6 +481,9 @@
                             <table class="table">
                                 <thead>
                                     <tr>
+                                        @if (Auth::user()->hasPermission('delete_settlements'))
+                                            <th style="width: 40px; text-align: center;"><input type="checkbox" id="checkAllSettlements" style="cursor: pointer;" onclick="toggleCheckAllSettlements(this)"></th>
+                                        @endif
                                         <th>No. Bukti</th>
                                         <th>Tanggal</th>
                                         <th>Penerima</th>
@@ -484,6 +501,11 @@
                                     @if(isset($advances) && $advances->isNotEmpty())
                                         @foreach ($advances as $adv)
                                             <tr>
+                                                @if (Auth::user()->hasPermission('delete_settlements'))
+                                                    <td style="text-align: center;">
+                                                        <input type="checkbox" class="settlement-checkbox" value="{{ $adv->id }}" style="cursor: pointer;" onclick="updateBulkDeleteSettlementsState()">
+                                                    </td>
+                                                @endif
                                                 <td style="font-family: monospace; font-weight: 600; color: var(--text-secondary);">{{ $adv->transaction_number }}</td>
                                                 <td>{{ $adv->transaction_date->format('d/m/Y') }}</td>
                                                 <td><span style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);">{{ $adv->recipient_name ?? '-' }}</span></td>
@@ -517,28 +539,41 @@
                                                 <td>
                                                     <div style="display: flex; gap: 4px; align-items: center;">
                                                         @if ($adv->advance_status === 'open')
-                                                            @if (Auth::user()->hasPermission('edit_transactions'))
+                                                            @if (Auth::user()->hasPermission('edit_settlements'))
                                                                 <button type="button" class="btn btn-success btn-sm" style="font-weight: 600; padding: 6px 12px; border-radius: 6px;" onclick="openSettleModal({{ $adv->id }}, '{{ $adv->transaction_number }}', {{ $adv->amount }}, '{{ addslashes($adv->recipient_name) }}')">
                                                                     Laporkan Bon
                                                                 </button>
                                                             @endif
-                                                            @if (Auth::user()->hasPermission('delete_transactions'))
+                                                            @if (Auth::user()->hasPermission('delete_settlements'))
                                                                 <button 
                                                                     type="button" 
                                                                     class="btn-action btn-action-delete" 
                                                                     title="Hapus Advance"
-                                                                    onclick="confirmDeleteTransaction({{ $adv->id }}, '{{ $adv->transaction_number }}')"
+                                                                    onclick="confirmDeleteSettlement({{ $adv->id }}, '{{ $adv->transaction_number }}')"
                                                                 >
                                                                     <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                                                     </svg>
                                                                 </button>
                                                             @endif
-                                                            @if (!Auth::user()->hasPermission('edit_transactions') && !Auth::user()->hasPermission('delete_transactions'))
+                                                            @if (!Auth::user()->hasPermission('edit_settlements') && !Auth::user()->hasPermission('delete_settlements'))
                                                                 <span style="color: var(--text-muted); font-size: 0.8rem;">No Izin</span>
                                                             @endif
                                                         @else
-                                                            <span style="color: var(--text-muted); font-size: 0.85rem;">Selesai pada {{ $adv->settled_at ? \Carbon\Carbon::parse($adv->settled_at)->format('d/m/Y') : '' }}</span>
+                                                            @if (Auth::user()->hasPermission('delete_settlements'))
+                                                                <button 
+                                                                    type="button" 
+                                                                    class="btn-action btn-action-delete" 
+                                                                    title="Hapus Advance"
+                                                                    onclick="confirmDeleteSettlement({{ $adv->id }}, '{{ $adv->transaction_number }}')"
+                                                                >
+                                                                    <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                    </svg>
+                                                                </button>
+                                                            @else
+                                                                <span style="color: var(--text-muted); font-size: 0.85rem;">Selesai pada {{ $adv->settled_at ? \Carbon\Carbon::parse($adv->settled_at)->format('d/m/Y') : '' }}</span>
+                                                            @endif
                                                         @endif
                                                     </div>
                                                 </td>
@@ -546,7 +581,7 @@
                                         @endforeach
                                     @else
                                         <tr>
-                                            <td colspan="10" style="text-align: center; color: var(--text-muted); padding: 32px 0;">Tidak ada catatan transaksi uang muka (advance).</td>
+                                            <td colspan="12" style="text-align: center; color: var(--text-muted); padding: 32px 0;">Tidak ada catatan transaksi uang muka (advance).</td>
                                         </tr>
                                     @endif
                                 </tbody>
@@ -644,6 +679,19 @@
         @csrf
         @method('DELETE')
         <div id="bulkDeleteIdsContainer"></div>
+    </form>
+
+    <!-- Hidden Delete Settlement Form -->
+    <form id="deleteSettlementForm" action="" method="POST" style="display: none;">
+        @csrf
+        @method('DELETE')
+    </form>
+
+    <!-- Hidden Bulk Delete Settlements Form -->
+    <form id="bulkDeleteSettlementsForm" action="{{ route('web.settlements.bulkDestroy') }}" method="POST" style="display: none;">
+        @csrf
+        @method('DELETE')
+        <div id="bulkDeleteSettlementsIdsContainer"></div>
     </form>
 
     <!-- Universal Transaction Modal -->
@@ -804,6 +852,19 @@
                                 </label>
                                 <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 0.9rem;">
                                     <input type="checkbox" name="permissions[]" value="delete_transactions" class="perm-checkbox"> Hapus Transaksi (Delete)
+                                </label>
+                                <hr style="border: 0; border-top: 1px solid var(--border-glass); margin: 6px 0;">
+                                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 0.9rem;">
+                                    <input type="checkbox" name="permissions[]" value="view_settlements" class="perm-checkbox" checked> Lihat Menu Settlement
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 0.9rem;">
+                                    <input type="checkbox" name="permissions[]" value="create_settlements" class="perm-checkbox" checked> Tambah Settlement (Uang Muka)
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 0.9rem;">
+                                    <input type="checkbox" name="permissions[]" value="edit_settlements" class="perm-checkbox"> Proses Settlement (Settle)
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 0.9rem;">
+                                    <input type="checkbox" name="permissions[]" value="delete_settlements" class="perm-checkbox"> Hapus Settlement (Delete)
                                 </label>
                             </div>
                         </div>
@@ -1356,6 +1417,102 @@
                 const isSettlements = document.getElementById('nav-settlements').classList.contains('active');
                 tabInput.value = isSettlements ? 'settlements' : 'transactions';
                 
+                container.appendChild(tabInput);
+
+                form.submit();
+            }
+        }
+
+        // Settlement Delete and Bulk Delete Handlers
+        function confirmDeleteSettlement(id, transactionNumber) {
+            if (confirm(`Apakah Anda yakin ingin menghapus uang muka/settlement ${transactionNumber}?`)) {
+                const form = document.getElementById('deleteSettlementForm');
+                form.action = `/settlements/${id}`;
+
+                // Add activeTab to keep user on the same tab
+                let tabInput = document.createElement('input');
+                tabInput.type = 'hidden';
+                tabInput.name = 'activeTab';
+                tabInput.value = 'settlements';
+                
+                form.appendChild(tabInput);
+                form.submit();
+            }
+        }
+
+        function toggleCheckAllSettlements(master) {
+            const checkboxes = document.querySelectorAll('.settlement-checkbox');
+            checkboxes.forEach(cb => {
+                cb.checked = master.checked;
+            });
+            updateBulkDeleteSettlementsState();
+        }
+
+        function updateBulkDeleteSettlementsState() {
+            const checkboxes = document.querySelectorAll('.settlement-checkbox');
+            const selectedIds = [];
+            checkboxes.forEach(cb => {
+                if (cb.checked) {
+                    selectedIds.push(cb.value);
+                }
+            });
+
+            const btnDeleteBulkSettlements = document.getElementById('btnDeleteBulkSettlements');
+            const selectedSettlementCount = document.getElementById('selectedSettlementCount');
+            const checkAllSettlements = document.getElementById('checkAllSettlements');
+
+            if (selectedIds.length > 0) {
+                if (selectedSettlementCount) selectedSettlementCount.innerText = selectedIds.length;
+                if (btnDeleteBulkSettlements) {
+                    btnDeleteBulkSettlements.style.display = 'inline-flex';
+                }
+            } else {
+                if (btnDeleteBulkSettlements) {
+                    btnDeleteBulkSettlements.style.display = 'none';
+                }
+            }
+
+            // Sync master checkbox state
+            if (checkAllSettlements) {
+                checkAllSettlements.checked = (selectedIds.length === checkboxes.length && checkboxes.length > 0);
+            }
+        }
+
+        function submitBulkDeleteSettlements() {
+            const checkboxes = document.querySelectorAll('.settlement-checkbox');
+            const selectedIds = [];
+            checkboxes.forEach(cb => {
+                if (cb.checked) {
+                    selectedIds.push(cb.value);
+                }
+            });
+
+            if (selectedIds.length === 0) {
+                alert('Pilih setidaknya satu settlement untuk dihapus.');
+                return;
+            }
+
+            if (confirm(`Apakah Anda yakin ingin menghapus ${selectedIds.length} settlement/uang muka yang dipilih? Tindakan ini tidak dapat dibatalkan.`)) {
+                const form = document.getElementById('bulkDeleteSettlementsForm');
+                const container = document.getElementById('bulkDeleteSettlementsIdsContainer');
+                
+                // Clear old inputs
+                container.innerHTML = '';
+                
+                // Append selected IDs as hidden inputs
+                selectedIds.forEach(id => {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'ids[]';
+                    input.value = id;
+                    container.appendChild(input);
+                });
+
+                // Add activeTab
+                let tabInput = document.createElement('input');
+                tabInput.type = 'hidden';
+                tabInput.name = 'activeTab';
+                tabInput.value = 'settlements';
                 container.appendChild(tabInput);
 
                 form.submit();

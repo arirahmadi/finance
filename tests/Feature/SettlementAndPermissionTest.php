@@ -225,4 +225,134 @@ class SettlementAndPermissionTest extends TestCase
             'amount' => 500000.00
         ]);
     }
+
+    /**
+     * Test settlement permissions.
+     */
+    public function test_staff_settlement_permissions(): void
+    {
+        // 1. Test indexSettlements (View Menu)
+        // Access denied
+        $response = $this->actingAs($this->staff)->get('/settlements');
+        $response->assertStatus(302);
+        $response->assertSessionHasErrors(['auth']);
+
+        // Access allowed
+        $this->staff->update(['permissions' => ['view_settlements']]);
+        $response = $this->actingAs($this->staff)->get('/settlements');
+        $response->assertStatus(302);
+        $response->assertRedirect('/?activeTab=settlements');
+
+        // 2. Test storeAdvance
+        // Access denied
+        $this->staff->update(['permissions' => ['view_settlements']]);
+        $response = $this->actingAs($this->staff)->post('/settlements/advance', [
+            'amount' => 1000.00,
+            'payment_account_id' => $this->cashAccount->id,
+            'transaction_date' => now()->format('Y-m-d'),
+            'description' => 'Test advance',
+            'recipient_name' => 'Budi',
+        ]);
+        $response->assertStatus(302);
+        $response->assertSessionHasErrors(['auth']);
+
+        // Access allowed
+        $this->staff->update(['permissions' => ['view_settlements', 'create_settlements']]);
+        $response = $this->actingAs($this->staff)->post('/settlements/advance', [
+            'amount' => 1000.00,
+            'payment_account_id' => $this->cashAccount->id,
+            'transaction_date' => now()->format('Y-m-d'),
+            'description' => 'Test advance allowed',
+            'recipient_name' => 'Budi',
+        ]);
+        $response->assertStatus(302);
+        $response->assertSessionHas('success');
+        $this->assertDatabaseHas('transactions', ['recipient_name' => 'Budi', 'description' => 'Test advance allowed']);
+
+        // Get the created advance transaction
+        $tx = Transaction::where('description', 'Test advance allowed')->first();
+
+        // 3. Test settleAdvance
+        Storage::fake('public');
+        $file = UploadedFile::fake()->image('receipt.jpg', 300, 300);
+
+        // Access denied
+        $this->staff->update(['permissions' => ['view_settlements']]);
+        $response = $this->actingAs($this->staff)->post('/settlements/' . $tx->id . '/settle', [
+            'settlement_amount' => 1000.00,
+            'expense_account_id' => $this->expenseAccount->id,
+            'receipt' => $file,
+        ]);
+        $response->assertStatus(302);
+        $response->assertSessionHasErrors(['auth']);
+
+        // Access allowed
+        $this->staff->update(['permissions' => ['view_settlements', 'edit_settlements']]);
+        $response = $this->actingAs($this->staff)->post('/settlements/' . $tx->id . '/settle', [
+            'settlement_amount' => 1000.00,
+            'expense_account_id' => $this->expenseAccount->id,
+            'receipt' => $file,
+        ]);
+        $response->assertStatus(302);
+        $response->assertSessionHas('success');
+
+        // 4. Test deleteSettlement
+        // Access denied
+        $this->staff->update(['permissions' => ['view_settlements']]);
+        $response = $this->actingAs($this->staff)->delete('/settlements/' . $tx->id);
+        $response->assertStatus(302);
+        $response->assertSessionHasErrors(['auth']);
+        $this->assertDatabaseHas('transactions', ['id' => $tx->id]);
+
+        // Access allowed
+        $this->staff->update(['permissions' => ['view_settlements', 'delete_settlements']]);
+        $response = $this->actingAs($this->staff)->delete('/settlements/' . $tx->id);
+        $response->assertStatus(302);
+        $response->assertSessionHas('success');
+        $this->assertDatabaseMissing('transactions', ['id' => $tx->id]);
+    }
+
+    /**
+     * Test bulk delete settlements.
+     */
+    public function test_bulk_delete_settlements(): void
+    {
+        // Create 2 advances
+        $tx1 = Transaction::create([
+            'transaction_number' => 'TX-ADV-1',
+            'transaction_date' => now(),
+            'description' => 'Advance 1',
+            'recipient_name' => 'Budi',
+            'is_advance' => true,
+            'advance_status' => 'open',
+            'created_by' => $this->owner->id,
+        ]);
+        $tx2 = Transaction::create([
+            'transaction_number' => 'TX-ADV-2',
+            'transaction_date' => now(),
+            'description' => 'Advance 2',
+            'recipient_name' => 'Toni',
+            'is_advance' => true,
+            'advance_status' => 'open',
+            'created_by' => $this->owner->id,
+        ]);
+
+        // Try bulk delete as staff without permission
+        $response = $this->actingAs($this->staff)->delete('/settlements/bulk', [
+            'ids' => [$tx1->id, $tx2->id]
+        ]);
+        $response->assertStatus(302);
+        $response->assertSessionHasErrors(['auth']);
+        $this->assertDatabaseHas('transactions', ['id' => $tx1->id]);
+
+        // Try bulk delete as staff with permission
+        $this->staff->update(['permissions' => ['delete_settlements']]);
+        $response = $this->actingAs($this->staff)->delete('/settlements/bulk', [
+            'ids' => [$tx1->id, $tx2->id]
+        ]);
+        $response->assertStatus(302);
+        $response->assertSessionHas('success');
+        $this->assertDatabaseMissing('transactions', ['id' => $tx1->id]);
+        $this->assertDatabaseMissing('transactions', ['id' => $tx2->id]);
+    }
 }

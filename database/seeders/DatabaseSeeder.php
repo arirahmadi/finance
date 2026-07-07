@@ -29,7 +29,10 @@ class DatabaseSeeder extends Seeder
             'email' => 'admin@finance.com',
             'password' => bcrypt('password123'),
             'role' => 'staff',
-            'permissions' => ['view_transactions', 'create_transactions', 'edit_transactions', 'delete_transactions'],
+            'permissions' => [
+                'view_transactions', 'create_transactions', 'edit_transactions', 'delete_transactions',
+                'view_settlements', 'create_settlements', 'edit_settlements', 'delete_settlements'
+            ],
         ]);
 
         $this->call([
