@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard Keuangan - Finance System</title>
-    <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}?v=1.0.2">
     <script>
         // Init theme from localStorage (default: dark/true black)
         const savedTheme = localStorage.getItem('theme') || 'dark';
