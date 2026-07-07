@@ -709,13 +709,13 @@ class WebController extends Controller
             // 1. Upload receipt attachment
             if ($request->hasFile('receipt')) {
                 $file = $request->file('receipt');
-                $path = $file->store('receipts', 'public');
+                $filename = Str::uuid() . '.' . $file->getClientOriginalExtension();
+                $path = $file->storeAs('receipts', $filename, 'public');
 
                 Attachment::create([
                     'transaction_id' => $tx->id,
                     'file_path' => $path,
                     'original_name' => $file->getClientOriginalName(),
-                    'mime_type' => $file->getMimeType(),
                     'file_size' => $file->getSize(),
                 ]);
             }

@@ -37,22 +37,42 @@ Route::get('/run-setup', function () {
         echo "Running migrate:fresh --seed...<br>";
         \Illuminate\Support\Facades\Artisan::call('migrate:fresh', ['--force' => true, '--seed' => true]);
         
+        echo "Creating storage directories...<br>";
+        $receiptsDir = storage_path('app/public/receipts');
+        if (!is_dir($receiptsDir)) {
+            mkdir($receiptsDir, 0755, true);
+            echo "Created receipts directory.<br>";
+        } else {
+            echo "Receipts directory already exists.<br>";
+        }
+        
         echo "Running storage:link...<br>";
         try {
             $target = storage_path('app/public');
             $link = public_path('storage');
+            if (is_link($link)) {
+                unlink($link);
+            }
             if (!file_exists($link)) {
                 @symlink($target, $link);
                 echo "Symlink created successfully!<br>";
             } else {
-                echo "Symlink already exists.<br>";
+                echo "Symlink/directory already exists.<br>";
             }
         } catch (\Throwable $e) {
             echo "Storage link note: " . $e->getMessage() . "<br>";
         }
         
-        return "Setup successfully completed! Please delete this route from routes/web.php for security.";
+        // Verify storage link
+        echo "<br><strong>Verification:</strong><br>";
+        echo "Storage path: " . storage_path('app/public') . "<br>";
+        echo "Public storage: " . public_path('storage') . "<br>";
+        echo "Symlink exists: " . (is_link(public_path('storage')) ? 'YES' : 'NO') . "<br>";
+        echo "Receipts dir exists: " . (is_dir($receiptsDir) ? 'YES' : 'NO') . "<br>";
+        echo "Storage writable: " . (is_writable(storage_path('app/public')) ? 'YES' : 'NO') . "<br>";
+        
+        return "<br><strong>Setup successfully completed!</strong> Please delete this route from routes/web.php for security.";
     } catch (\Exception $e) {
-        return "Setup failed: " . $e->getMessage();
+        return "Setup failed: " . $e->getMessage() . "<br>Trace: " . $e->getTraceAsString();
     }
 });
