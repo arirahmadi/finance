@@ -440,18 +440,18 @@
                     </div>
                 @endif
 
-                <!-- Section: Settlements (Uang Muka & Settlement) -->
+                <!-- Section: Settlements (Advance & Settlement) -->
                 <div id="section-settlements" class="tab-section" style="display: none;">
                     <section class="kpi-grid">
                         <div class="kpi-card glass-panel kpi-outflow">
-                            <div class="kpi-title">Outstanding Uang Muka (Hutang Karyawan)</div>
+                            <div class="kpi-title">Outstanding (Hutang Karyawan)</div>
                             <div class="kpi-value amount-out">Rp {{ isset($settlementSummary) ? number_format($settlementSummary->total_outstanding, 0, ',', '.') : 0 }}</div>
                             <div class="kpi-desc">Total dana kas yang belum diselesaikan (dilaporkan bon)</div>
                         </div>
                         <div class="kpi-card glass-panel kpi-inflow">
-                            <div class="kpi-title">Uang Muka Selesai (Settled)</div>
+                            <div class="kpi-title">Selesai (Settled)</div>
                             <div class="kpi-value amount-in">Rp {{ isset($settlementSummary) ? number_format($settlementSummary->total_settled, 0, ',', '.') : 0 }}</div>
-                            <div class="kpi-desc">Total dana uang muka yang telah di-settle dengan bon fisik</div>
+                            <div class="kpi-desc">Total dana advance yang telah di-settle dengan bon fisik</div>
                         </div>
                     </section>
 
@@ -468,14 +468,14 @@
                         </div>
                         @if (Auth::user()->hasPermission('create_settlements'))
                             <button onclick="openAdvanceModal()" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px;">
-                                <span style="font-size: 1.1rem; line-height: 1;">+</span> Buat Uang Muka (Advance)
+                                <span style="font-size: 1.1rem; line-height: 1;">+</span> Buat Advance
                             </button>
                         @endif
                     </div>
 
                     <section class="glass-panel table-card" style="margin-top: 16px;">
                         <div class="table-header">
-                            <h2>Daftar Uang Muka (Advance Payments)</h2>
+                            <h2>Daftar Advance (Advance Payments)</h2>
                         </div>
                         <div class="table-wrapper">
                             <table class="table">
@@ -488,7 +488,7 @@
                                         <th>Tanggal</th>
                                         <th>Penerima</th>
                                         <th>Penginput</th>
-                                        <th>Nominal Uang Muka</th>
+                                        <th>Nominal Advance</th>
                                         <th>Sumber Kas</th>
                                         <th>Keterangan</th>
                                         <th>Nominal Bon</th>
@@ -550,7 +550,7 @@
                                                             <button 
                                                                 type="button" 
                                                                 class="btn-action btn-action-edit" 
-                                                                title="Ubah Uang Muka / Settlement"
+                                                                title="Ubah Advance / Settlement"
                                                                 onclick="initiateEditSettlement(this)"
                                                                 data-adv="{{ json_encode([
                                                                     'id' => $adv->id,
@@ -596,7 +596,7 @@
                                         @endforeach
                                     @else
                                         <tr>
-                                            <td colspan="12" style="text-align: center; color: var(--text-muted); padding: 32px 0;">Tidak ada catatan transaksi uang muka (advance).</td>
+                                            <td colspan="12" style="text-align: center; color: var(--text-muted); padding: 32px 0;">Tidak ada catatan transaksi advance.</td>
                                         </tr>
                                     @endif
                                 </tbody>
@@ -873,7 +873,7 @@
                                     <input type="checkbox" name="permissions[]" value="view_settlements" class="perm-checkbox" checked> Lihat Menu Settlement
                                 </label>
                                 <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 0.9rem;">
-                                    <input type="checkbox" name="permissions[]" value="create_settlements" class="perm-checkbox" checked> Tambah Settlement (Uang Muka)
+                                    <input type="checkbox" name="permissions[]" value="create_settlements" class="perm-checkbox" checked> Tambah Settlement (Advance)
                                 </label>
                                 <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 0.9rem;">
                                     <input type="checkbox" name="permissions[]" value="process_settlements" class="perm-checkbox"> Proses Settlement (Settle)
@@ -900,18 +900,18 @@
     <div id="advanceModal" class="modal-overlay">
         <div class="modal-card glass-panel">
             <div class="modal-header">
-                <h3>Buat Uang Muka Baru (Advance)</h3>
+                <h3>Buat Advance Baru</h3>
                 <button onclick="closeAdvanceModal()" class="modal-close">&times;</button>
             </div>
             <form action="{{ route('web.settlements.storeAdvance') }}" method="POST">
                 @csrf
                 <div class="modal-body">
                     <div class="form-group">
-                        <label class="form-label">Tanggal Pengeluaran Uang Muka</label>
+                        <label class="form-label">Tanggal Pengeluaran Advance</label>
                         <input type="date" name="transaction_date" class="form-input" required value="{{ date('Y-m-d') }}">
                     </div>
                     <div class="form-group" style="margin-top: 14px;">
-                        <label class="form-label">Nama Penerima Uang Muka</label>
+                        <label class="form-label">Nama Penerima Advance</label>
                         <input type="text" name="recipient_name" class="form-input" required placeholder="Contoh: Budi Santoso">
                     </div>
                     <div class="form-group" style="margin-top: 14px;">
@@ -928,7 +928,7 @@
                     </div>
                     <div class="form-group" style="margin-top: 14px;">
                         <label class="form-label">Tujuan Keperluan (Deskripsi)</label>
-                        <textarea name="description" class="form-input" required rows="3" placeholder="Contoh: Uang muka pembelian server RAM baru PT Central" style="resize: none;"></textarea>
+                        <textarea name="description" class="form-input" required rows="3" placeholder="Contoh: Pembelian server RAM baru PT Central" style="resize: none;"></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -943,7 +943,7 @@
     <div id="settleModal" class="modal-overlay">
         <div class="modal-card glass-panel">
             <div class="modal-header">
-                <h3>Form Settlement Uang Muka</h3>
+                <h3>Form Settlement</h3>
                 <button onclick="closeSettleModal()" class="modal-close">&times;</button>
             </div>
             <form id="settleAdvanceForm" action="" method="POST" enctype="multipart/form-data">
@@ -954,11 +954,11 @@
                         <input type="text" id="settle_adv_num" class="form-input" disabled style="background: rgba(255,255,255,0.05); color: var(--text-secondary);">
                     </div>
                     <div class="form-group" style="margin-top: 12px;">
-                        <label class="form-label">Nama Penerima Uang Muka</label>
+                        <label class="form-label">Nama Penerima Advance</label>
                         <input type="text" id="settle_adv_recipient" class="form-input" disabled style="background: rgba(255,255,255,0.05); color: var(--text-secondary);">
                     </div>
                     <div class="form-group" style="margin-top: 12px;">
-                        <label class="form-label">Nominal Uang Muka Awal</label>
+                        <label class="form-label">Nominal Advance Awal</label>
                         <input type="text" id="settle_adv_amount" class="form-input" disabled style="background: rgba(255,255,255,0.05); color: var(--text-secondary);">
                     </div>
                     <hr style="border: 0; border-top: 1px solid var(--border-glass); margin: 16px 0;">
@@ -1004,11 +1004,11 @@
                 <div class="modal-body">
                     <!-- Basic Advance Fields (Always Visible) -->
                     <div class="form-group">
-                        <label class="form-label">Tanggal Pengeluaran Uang Muka</label>
+                        <label class="form-label">Tanggal Pengeluaran Advance</label>
                         <input type="date" name="transaction_date" id="edit_sett_date" class="form-input" required>
                     </div>
                     <div class="form-group" style="margin-top: 12px;">
-                        <label class="form-label">Nama Penerima Uang Muka</label>
+                        <label class="form-label">Nama Penerima Advance</label>
                         <input type="text" name="recipient_name" id="edit_sett_recipient" class="form-input" required placeholder="Contoh: Budi Santoso">
                     </div>
                     <div class="form-group" style="margin-top: 12px;">
@@ -1512,7 +1512,7 @@
 
         // Settlement Delete and Bulk Delete Handlers
         function confirmDeleteSettlement(id, transactionNumber) {
-            if (confirm(`Apakah Anda yakin ingin menghapus uang muka/settlement ${transactionNumber}?`)) {
+            if (confirm(`Apakah Anda yakin ingin menghapus advance/settlement ${transactionNumber}?`)) {
                 const form = document.getElementById('deleteSettlementForm');
                 form.action = `/settlements/${id}`;
 
@@ -1648,7 +1648,7 @@
                 return;
             }
 
-            if (confirm(`Apakah Anda yakin ingin menghapus ${selectedIds.length} settlement/uang muka yang dipilih? Tindakan ini tidak dapat dibatalkan.`)) {
+            if (confirm(`Apakah Anda yakin ingin menghapus ${selectedIds.length} settlement/advance yang dipilih? Tindakan ini tidak dapat dibatalkan.`)) {
                 const form = document.getElementById('bulkDeleteSettlementsForm');
                 const container = document.getElementById('bulkDeleteSettlementsIdsContainer');
                 
@@ -1844,11 +1844,11 @@
             } else if (diff < 0) {
                 helpEl.style.color = '#60a5fa'; // Blue
                 const returnedAmount = Math.abs(diff);
-                helpEl.innerText = `Kelebihan Uang Muka: Karyawan mengembalikan sisa Rp ${new Intl.NumberFormat('id-ID').format(returnedAmount)} ke kas.`;
+                helpEl.innerText = `Kelebihan Advance: Karyawan mengembalikan sisa Rp ${new Intl.NumberFormat('id-ID').format(returnedAmount)} ke kas.`;
             } else {
                 helpEl.style.color = '#f87171'; // Red
                 const companyPays = diff;
-                helpEl.innerText = `Kekurangan Uang Muka: Perusahaan membayarkan sisa Rp ${new Intl.NumberFormat('id-ID').format(companyPays)} ke karyawan.`;
+                helpEl.innerText = `Kekurangan Advance: Perusahaan membayarkan sisa Rp ${new Intl.NumberFormat('id-ID').format(companyPays)} ke karyawan.`;
             }
         }
 
