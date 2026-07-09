@@ -77,7 +77,7 @@ class TransactionApiTest extends TestCase
                 ],
             ]);
 
-        $this->assertCount(13, $response->json('data'));
+        $this->assertCount(Account::count(), $response->json('data'));
     }
 
     /**

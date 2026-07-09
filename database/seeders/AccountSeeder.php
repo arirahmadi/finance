@@ -18,6 +18,7 @@ class AccountSeeder extends Seeder
             ['code' => '1102', 'name' => 'Bank Mandiri/BCA', 'type' => 'asset'],
             ['code' => '1201', 'name' => 'Piutang Usaha', 'type' => 'asset'],
             ['code' => '1202', 'name' => 'Uang Muka Pembelian', 'type' => 'asset'],
+            ['code' => '1203', 'name' => 'Piutang Karyawan (Cash Advance)', 'type' => 'asset'],
 
             // Liabilities (2000)
             ['code' => '2101', 'name' => 'Utang Usaha', 'type' => 'liability'],

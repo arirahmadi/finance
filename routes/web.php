@@ -29,6 +29,13 @@ Route::middleware('auth')->group(function () {
     Route::put('/settlements/{id}', [WebController::class, 'editSettlement'])->name('web.settlements.update');
     Route::delete('/settlements/bulk', [WebController::class, 'bulkDeleteSettlement'])->name('web.settlements.bulkDestroy');
     Route::delete('/settlements/{id}', [WebController::class, 'deleteSettlement'])->name('web.settlements.destroy');
+
+    // Cash Advances (Pinjaman Karyawan)
+    Route::post('/cash-advances', [WebController::class, 'storeLoan'])->name('web.cash_advances.store');
+    Route::put('/cash-advances/{id}', [WebController::class, 'editLoan'])->name('web.cash_advances.update');
+    Route::delete('/cash-advances/{id}', [WebController::class, 'deleteLoan'])->name('web.cash_advances.destroy');
+    Route::post('/cash-advances/{id}/repay', [WebController::class, 'storeRepayment'])->name('web.cash_advances.repay');
+    Route::delete('/cash-advances/repay/{repayment_id}', [WebController::class, 'deleteRepayment'])->name('web.cash_advances.destroyRepayment');
 });
 
 // Fallback route for viewing attachments (since PHP symlink() is disabled on Hostinger)
@@ -89,5 +96,17 @@ Route::get('/run-setup', function () {
         return "<br><strong>Setup successfully completed!</strong> Please delete this route from routes/web.php for security.";
     } catch (\Exception $e) {
         return "Setup failed: " . $e->getMessage() . "<br>Trace: " . $e->getTraceAsString();
+    }
+});
+
+Route::get('/run-migrate', function () {
+    try {
+        echo "Running migrate...<br>";
+        \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+        echo "Running AccountSeeder...<br>";
+        \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'AccountSeeder', '--force' => true]);
+        return "Migration and Account Seeding completed successfully!";
+    } catch (\Exception $e) {
+        return "Migration failed: " . $e->getMessage() . "<br>Trace: " . $e->getTraceAsString();
     }
 });

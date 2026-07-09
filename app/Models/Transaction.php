@@ -20,6 +20,10 @@ class Transaction extends Model
         'advance_status', 
         'settled_at', 
         'settlement_amount', 
+        'is_loan',
+        'loan_status',
+        'loan_repaid_amount',
+        'loan_parent_id',
         'created_by'
     ];
 
@@ -27,6 +31,7 @@ class Transaction extends Model
         'transaction_date' => 'date',
         'is_advance' => 'boolean',
         'settled_at' => 'datetime',
+        'is_loan' => 'boolean',
     ];
 
     public function journalEntries(): HasMany
@@ -42,5 +47,15 @@ class Transaction extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function parentLoan(): BelongsTo
+    {
+        return $this->belongsTo(Transaction::class, 'loan_parent_id');
+    }
+
+    public function repayments(): HasMany
+    {
+        return $this->hasMany(Transaction::class, 'loan_parent_id');
     }
 }

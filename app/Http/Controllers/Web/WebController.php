@@ -71,6 +71,8 @@ class WebController extends Controller
 
         $query = Transaction::with(['journalEntries.account', 'attachments', 'creator'])
             ->where('is_advance', false)
+            ->where('is_loan', false)
+            ->whereNull('loan_parent_id')
             ->orderBy('transaction_date', 'desc')
             ->orderBy('id', 'desc');
 
@@ -213,6 +215,96 @@ class WebController extends Controller
             'total_settled' => $totalSettled,
         ];
 
+        // Load Cash Advances (Pinjaman Karyawan)
+        $loans = Transaction::with(['journalEntries.account', 'creator', 'repayments.journalEntries.account', 'repayments.creator'])
+            ->where('is_loan', true)
+            ->orderBy('transaction_date', 'desc')
+            ->get();
+
+        $totalOutstandingLoans = 0;
+        $totalRepaidLoans = 0;
+
+        $formattedLoans = $loans->map(function ($tx) use (&$totalOutstandingLoans, &$totalRepaidLoans) {
+            // Find loan amount from 1203 entry (debit)
+            $amount = 0;
+            foreach ($tx->journalEntries as $entry) {
+                if (Str::startsWith($entry->account->code, '1203') && $entry->type === 'debit') {
+                    $amount = floatval($entry->amount);
+                }
+            }
+
+            if ($amount === 0 && $tx->journalEntries->isNotEmpty()) {
+                $amount = floatval($tx->journalEntries->first()->amount);
+            }
+
+            $paymentSource = '';
+            $paymentAccountId = null;
+            foreach ($tx->journalEntries as $entry) {
+                if (Str::startsWith($entry->account->code, '11') && $entry->type === 'credit') {
+                    $paymentSource = $entry->account->name;
+                    $paymentAccountId = $entry->account_id;
+                }
+            }
+
+            $repaidAmount = floatval($tx->loan_repaid_amount);
+            $remainingAmount = $amount - $repaidAmount;
+
+            if ($tx->loan_status === 'repaid') {
+                $totalRepaidLoans += $amount;
+            } else {
+                $totalOutstandingLoans += $remainingAmount;
+            }
+
+            // Repayments for this loan
+            $repayments = Transaction::with(['journalEntries.account', 'creator'])
+                ->where('loan_parent_id', $tx->id)
+                ->orderBy('transaction_date', 'asc')
+                ->get()
+                ->map(function ($rep) {
+                    $repAmount = 0;
+                    $destAccount = '';
+                    foreach ($rep->journalEntries as $entry) {
+                        if (Str::startsWith($entry->account->code, '11') && $entry->type === 'debit') {
+                            $repAmount = floatval($entry->amount);
+                            $destAccount = $entry->account->name;
+                        }
+                    }
+                    if ($repAmount === 0 && $rep->journalEntries->isNotEmpty()) {
+                        $repAmount = floatval($rep->journalEntries->first()->amount);
+                    }
+                    return (object) [
+                        'id' => $rep->id,
+                        'transaction_number' => $rep->transaction_number,
+                        'transaction_date' => $rep->transaction_date,
+                        'description' => $rep->description,
+                        'amount' => $repAmount,
+                        'destination_account' => $destAccount,
+                        'creator' => $rep->creator->name ?? null,
+                    ];
+                });
+
+            return (object) [
+                'id' => $tx->id,
+                'transaction_number' => $tx->transaction_number,
+                'transaction_date' => $tx->transaction_date,
+                'description' => $tx->description,
+                'amount' => $amount,
+                'payment_source' => $paymentSource,
+                'payment_account_id' => $paymentAccountId,
+                'loan_status' => $tx->loan_status,
+                'loan_repaid_amount' => $repaidAmount,
+                'remaining_amount' => $remainingAmount,
+                'recipient_name' => $tx->recipient_name,
+                'creator' => $tx->creator->name ?? null,
+                'repayments' => $repayments,
+            ];
+        });
+
+        $loanSummary = (object) [
+            'total_outstanding' => $totalOutstandingLoans,
+            'total_repaid' => $totalRepaidLoans,
+        ];
+
         return view('dashboard', [
             'transactions' => $formattedTransactions,
             'summary' => (object) [
@@ -229,6 +321,8 @@ class WebController extends Controller
             'users' => $users,
             'advances' => $formattedAdvances,
             'settlementSummary' => $settlementSummary,
+            'loans' => $formattedLoans,
+            'loanSummary' => $loanSummary,
             'activeTab' => $request->input('activeTab', 'dashboard')
         ]);
     }
@@ -999,5 +1093,302 @@ class WebController extends Controller
         });
 
         return redirect()->route('dashboard', ['activeTab' => 'settlements'])->with('success', 'Settlement terpilih berhasil dihapus!');
+    }
+
+    /**
+     * Store a new Cash Advance loan.
+     */
+    public function storeLoan(Request $request): RedirectResponse
+    {
+        if (!Auth::user()->hasPermission('create_cash_advances')) {
+            return back()->withErrors(['auth' => 'Akses Ditolak: Anda tidak memiliki izin untuk membuat Cash Advance.']);
+        }
+
+        $request->validate([
+            'transaction_date' => 'required|date',
+            'recipient_name' => 'required|string|max:255',
+            'amount' => 'required|string',
+            'payment_account_id' => 'required|exists:accounts,id',
+            'description' => 'required|string|max:255',
+        ]);
+
+        $amount = floatval(str_replace('.', '', $request->amount));
+        if ($amount <= 0) {
+            return back()->withErrors(['amount' => 'Nominal pinjaman harus lebih besar dari 0.'])->withInput();
+        }
+
+        $loanAccount = Account::where('code', '1203')->first();
+        if (!$loanAccount) {
+            return back()->withErrors(['amount' => 'Akun Piutang Karyawan (1203) belum terdaftar di Chart of Accounts.'])->withInput();
+        }
+
+        DB::transaction(function () use ($request, $amount, $loanAccount) {
+            $datePrefix = Carbon::parse($request->transaction_date)->format('Ymd');
+            $countToday = Transaction::whereDate('transaction_date', $request->transaction_date)
+                ->where('transaction_number', 'LIKE', "CA-{$datePrefix}-%")
+                ->count();
+            $seq = str_pad($countToday + 1, 4, '0', STR_PAD_LEFT);
+            $txNum = "CA-{$datePrefix}-{$seq}";
+
+            $tx = Transaction::create([
+                'transaction_number' => $txNum,
+                'transaction_date' => $request->transaction_date,
+                'description' => $request->description,
+                'recipient_name' => $request->recipient_name,
+                'is_advance' => false,
+                'is_loan' => true,
+                'loan_status' => 'open',
+                'loan_repaid_amount' => 0,
+                'created_by' => Auth::id(),
+            ]);
+
+            // Debit 1203
+            JournalEntry::create([
+                'transaction_id' => $tx->id,
+                'account_id' => $loanAccount->id,
+                'type' => 'debit',
+                'amount' => $amount,
+            ]);
+
+            // Credit Cash/Bank source
+            JournalEntry::create([
+                'transaction_id' => $tx->id,
+                'account_id' => $request->payment_account_id,
+                'type' => 'credit',
+                'amount' => $amount,
+            ]);
+        });
+
+        return redirect()->route('dashboard', ['activeTab' => 'cash-advances'])->with('success', 'Pinjaman Cash Advance berhasil dicatat!');
+    }
+
+    /**
+     * Edit an existing Cash Advance loan.
+     */
+    public function editLoan(Request $request, $id): RedirectResponse
+    {
+        if (!Auth::user()->hasPermission('edit_cash_advances')) {
+            return back()->withErrors(['auth' => 'Akses Ditolak: Anda tidak memiliki izin untuk mengubah Cash Advance.']);
+        }
+
+        $tx = Transaction::where('is_loan', true)->findOrFail($id);
+
+        $request->validate([
+            'transaction_date' => 'required|date',
+            'recipient_name' => 'required|string|max:255',
+            'amount' => 'required|string',
+            'payment_account_id' => 'required|exists:accounts,id',
+            'description' => 'required|string|max:255',
+        ]);
+
+        $amount = floatval(str_replace('.', '', $request->amount));
+        if ($amount <= 0) {
+            return back()->withErrors(['amount' => 'Nominal pinjaman harus lebih besar dari 0.']);
+        }
+
+        if ($amount < floatval($tx->loan_repaid_amount)) {
+            return back()->withErrors(['amount' => 'Nominal pinjaman baru tidak boleh kurang dari total angsuran yang sudah dibayarkan (Rp ' . number_format($tx->loan_repaid_amount, 0, ',', '.') . ').']);
+        }
+
+        $loanAccount = Account::where('code', '1203')->first();
+        if (!$loanAccount) {
+            return back()->withErrors(['amount' => 'Akun Piutang Karyawan (1203) belum terdaftar di Chart of Accounts.']);
+        }
+
+        DB::transaction(function () use ($tx, $request, $amount, $loanAccount) {
+            $tx->update([
+                'transaction_date' => $request->transaction_date,
+                'description' => $request->description,
+                'recipient_name' => $request->recipient_name,
+            ]);
+
+            $repaid = floatval($tx->loan_repaid_amount);
+            if ($repaid >= $amount) {
+                $tx->update(['loan_status' => 'repaid']);
+            } else {
+                $tx->update(['loan_status' => 'open']);
+            }
+
+            $tx->journalEntries()->delete();
+
+            // Debit 1203
+            JournalEntry::create([
+                'transaction_id' => $tx->id,
+                'account_id' => $loanAccount->id,
+                'type' => 'debit',
+                'amount' => $amount,
+            ]);
+
+            // Credit Cash/Bank source
+            JournalEntry::create([
+                'transaction_id' => $tx->id,
+                'account_id' => $request->payment_account_id,
+                'type' => 'credit',
+                'amount' => $amount,
+            ]);
+        });
+
+        return redirect()->route('dashboard', ['activeTab' => 'cash-advances'])->with('success', 'Pinjaman Cash Advance berhasil diperbarui!');
+    }
+
+    /**
+     * Delete a Cash Advance loan.
+     */
+    public function deleteLoan($id): RedirectResponse
+    {
+        if (!Auth::user()->hasPermission('delete_cash_advances')) {
+            return back()->withErrors(['auth' => 'Akses Ditolak: Anda tidak memiliki izin untuk menghapus Cash Advance.']);
+        }
+
+        $tx = Transaction::where('is_loan', true)->findOrFail($id);
+
+        DB::transaction(function () use ($tx) {
+            $repayments = Transaction::where('loan_parent_id', $tx->id)->get();
+            foreach ($repayments as $rep) {
+                $rep->delete();
+            }
+            $tx->delete();
+        });
+
+        return redirect()->route('dashboard', ['activeTab' => 'cash-advances'])->with('success', 'Pinjaman Cash Advance beserta riwayat angsurannya berhasil dihapus!');
+    }
+
+    /**
+     * Store a loan repayment (angsuran).
+     */
+    public function storeRepayment(Request $request, $id): RedirectResponse
+    {
+        if (!Auth::user()->hasPermission('create_cash_advances')) {
+            return back()->withErrors(['auth' => 'Akses Ditolak: Anda tidak memiliki izin untuk mencatat angsuran.']);
+        }
+
+        $loan = Transaction::where('is_loan', true)->findOrFail($id);
+        if ($loan->loan_status === 'repaid') {
+            return back()->withErrors(['repay' => 'Pinjaman ini sudah lunas.']);
+        }
+
+        $request->validate([
+            'transaction_date' => 'required|date',
+            'amount' => 'required|string',
+            'payment_account_id' => 'required|exists:accounts,id',
+            'description' => 'required|string|max:255',
+        ]);
+
+        $amount = floatval(str_replace('.', '', $request->amount));
+        if ($amount <= 0) {
+            return back()->withErrors(['amount' => 'Nominal angsuran harus lebih besar dari 0.']);
+        }
+
+        $loanAmount = 0;
+        foreach ($loan->journalEntries as $entry) {
+            if (Str::startsWith($entry->account->code, '1203') && $entry->type === 'debit') {
+                $loanAmount = floatval($entry->amount);
+            }
+        }
+        if ($loanAmount === 0 && $loan->journalEntries->isNotEmpty()) {
+            $loanAmount = floatval($loan->journalEntries->first()->amount);
+        }
+
+        $currentRepaid = floatval($loan->loan_repaid_amount);
+        $remaining = $loanAmount - $currentRepaid;
+
+        if ($amount > $remaining) {
+            return back()->withErrors(['amount' => 'Nominal angsuran tidak boleh melebihi sisa pinjaman (Rp ' . number_format($remaining, 0, ',', '.') . ').']);
+        }
+
+        $loanAccount = Account::where('code', '1203')->first();
+        if (!$loanAccount) {
+            return back()->withErrors(['amount' => 'Akun Piutang Karyawan (1203) belum terdaftar.']);
+        }
+
+        DB::transaction(function () use ($loan, $request, $amount, $loanAccount, $currentRepaid, $loanAmount) {
+            $datePrefix = Carbon::parse($request->transaction_date)->format('Ymd');
+            $countToday = Transaction::whereDate('transaction_date', $request->transaction_date)
+                ->where('transaction_number', 'LIKE', "CAR-{$datePrefix}-%")
+                ->count();
+            $seq = str_pad($countToday + 1, 4, '0', STR_PAD_LEFT);
+            $txNum = "CAR-{$datePrefix}-{$seq}";
+
+            $repTx = Transaction::create([
+                'transaction_number' => $txNum,
+                'transaction_date' => $request->transaction_date,
+                'description' => $request->description,
+                'recipient_name' => $loan->recipient_name,
+                'is_advance' => false,
+                'is_loan' => false,
+                'loan_parent_id' => $loan->id,
+                'created_by' => Auth::id(),
+            ]);
+
+            // Debit chosen Cash/Bank destination
+            JournalEntry::create([
+                'transaction_id' => $repTx->id,
+                'account_id' => $request->payment_account_id,
+                'type' => 'debit',
+                'amount' => $amount,
+            ]);
+
+            // Credit 1203
+            JournalEntry::create([
+                'transaction_id' => $repTx->id,
+                'account_id' => $loanAccount->id,
+                'type' => 'credit',
+                'amount' => $amount,
+            ]);
+
+            $newRepaid = $currentRepaid + $amount;
+            $loan->update([
+                'loan_repaid_amount' => $newRepaid,
+                'loan_status' => ($newRepaid >= $loanAmount) ? 'repaid' : 'open',
+            ]);
+        });
+
+        return redirect()->route('dashboard', ['activeTab' => 'cash-advances'])->with('success', 'Pembayaran angsuran berhasil dicatat!');
+    }
+
+    /**
+     * Delete a single loan repayment (angsuran).
+     */
+    public function deleteRepayment($repayment_id): RedirectResponse
+    {
+        if (!Auth::user()->hasPermission('delete_cash_advances')) {
+            return back()->withErrors(['auth' => 'Akses Ditolak: Anda tidak memiliki izin untuk menghapus angsuran.']);
+        }
+
+        $rep = Transaction::whereNotNull('loan_parent_id')->findOrFail($repayment_id);
+        $loan = Transaction::findOrFail($rep->loan_parent_id);
+
+        DB::transaction(function () use ($rep, $loan) {
+            $repAmount = 0;
+            foreach ($rep->journalEntries as $entry) {
+                if (Str::startsWith($entry->account->code, '11') && $entry->type === 'debit') {
+                    $repAmount = floatval($entry->amount);
+                }
+            }
+            if ($repAmount === 0 && $rep->journalEntries->isNotEmpty()) {
+                $repAmount = floatval($rep->journalEntries->first()->amount);
+            }
+
+            $rep->delete();
+
+            $newRepaid = max(0, floatval($loan->loan_repaid_amount) - $repAmount);
+            
+            $loanAmount = 0;
+            foreach ($loan->journalEntries as $entry) {
+                if (Str::startsWith($entry->account->code, '1203') && $entry->type === 'debit') {
+                    $loanAmount = floatval($entry->amount);
+                }
+            }
+            if ($loanAmount === 0 && $loan->journalEntries->isNotEmpty()) {
+                $loanAmount = floatval($loan->journalEntries->first()->amount);
+            }
+
+            $loan->update([
+                'loan_repaid_amount' => $newRepaid,
+                'loan_status' => ($newRepaid >= $loanAmount) ? 'repaid' : 'open',
+            ]);
+        });
+
+        return redirect()->route('dashboard', ['activeTab' => 'cash-advances'])->with('success', 'Catatan angsuran berhasil dihapus dan saldo pinjaman dipulihkan!');
     }
 }

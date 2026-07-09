@@ -105,6 +105,14 @@
                         <span>Settlement</span>
                     </div>
                 @endif
+                @if (Auth::user()->hasPermission('view_cash_advances'))
+                    <div onclick="switchTab('cash-advances'); closeSidebar();" id="nav-cash-advances" class="sidebar-nav-item">
+                        <svg style="width:22px;height:22px;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>Cash Advance</span>
+                    </div>
+                @endif
                 @if (Auth::user()->role === 'owner')
                     <div onclick="switchTab('users'); closeSidebar();" id="nav-users" class="sidebar-nav-item">
                         <svg style="width:22px;height:22px;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -605,6 +613,200 @@
                     </section>
                 </div>
 
+                <!-- Section: Cash Advances (Pinjaman Karyawan) -->
+                <div id="section-cash-advances" class="tab-section" style="display: none;">
+                    <section class="kpi-grid">
+                        <div class="kpi-card glass-panel kpi-outflow">
+                            <div class="kpi-title">Outstanding Pinjaman (Piutang Karyawan)</div>
+                            <div class="kpi-value amount-out">Rp {{ number_format($loanSummary->total_outstanding, 0, ',', '.') }}</div>
+                            <div class="kpi-desc">Sisa piutang pinjaman aktif yang belum lunas</div>
+                        </div>
+                        <div class="kpi-card glass-panel kpi-inflow">
+                            <div class="kpi-title">Pinjaman Lunas</div>
+                            <div class="kpi-value amount-in">Rp {{ number_format($loanSummary->total_repaid, 0, ',', '.') }}</div>
+                            <div class="kpi-desc">Akumulasi total pinjaman yang sudah dikembalikan penuh</div>
+                        </div>
+                    </section>
+
+                    <div class="action-filter-bar" style="justify-content: flex-end; margin-top: 16px;">
+                        @if (Auth::user()->hasPermission('create_cash_advances'))
+                            <button onclick="openLoanModal()" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px;">
+                                <span style="font-size: 1.1rem; line-height: 1;">+</span> Buat Pinjaman Baru
+                            </button>
+                        @endif
+                    </div>
+
+                    <section class="glass-panel table-card" style="margin-top: 16px;">
+                        <div class="table-header">
+                            <h2>Daftar Cash Advance (Pinjaman Karyawan)</h2>
+                        </div>
+                        <div class="table-wrapper">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 40px;"></th>
+                                        <th>No. Bukti</th>
+                                        <th>Tanggal</th>
+                                        <th>Nama Karyawan</th>
+                                        <th>Penginput</th>
+                                        <th>Nominal Pinjaman</th>
+                                        <th>Total Dibayar</th>
+                                        <th>Sisa Pinjaman</th>
+                                        <th>Sumber Dana</th>
+                                        <th>Keterangan</th>
+                                        <th>Status</th>
+                                        <th>Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @if ($loans->isNotEmpty())
+                                        @foreach ($loans as $loan)
+                                            <tr>
+                                                <td style="text-align: center;">
+                                                    @if (count($loan->repayments) > 0)
+                                                        <button onclick="toggleRepaymentsRow({{ $loan->id }}, this)" class="btn-toggle-subtable" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; outline: none; padding: 4px;">
+                                                            <svg style="width: 16px; height: 16px; transition: transform 0.2s;" fill="none" viewBox="0 0 24 24" stroke="currentColor" id="toggle-icon-{{ $loan->id }}">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />
+                                                            </svg>
+                                                        </button>
+                                                    @endif
+                                                </td>
+                                                <td class="tx-number">{{ $loan->transaction_number }}</td>
+                                                <td>{{ $loan->transaction_date->format('d/m/Y') }}</td>
+                                                <td style="font-weight: 600; color: var(--text-primary);">{{ $loan->recipient_name }}</td>
+                                                <td>{{ $loan->creator }}</td>
+                                                <td style="font-weight: 600;">Rp {{ number_format($loan->amount, 0, ',', '.') }}</td>
+                                                <td style="color: #34d399;">Rp {{ number_format($loan->loan_repaid_amount, 0, ',', '.') }}</td>
+                                                <td style="font-weight: 600; color: {{ $loan->remaining_amount > 0 ? '#f87171' : 'var(--text-secondary)' }};">
+                                                    Rp {{ number_format($loan->remaining_amount, 0, ',', '.') }}
+                                                </td>
+                                                <td>{{ $loan->payment_source }}</td>
+                                                <td>{{ $loan->description }}</td>
+                                                <td>
+                                                    @if ($loan->loan_status === 'repaid')
+                                                        <span class="badge badge-success">Lunas</span>
+                                                    @else
+                                                        <span class="badge badge-warning">Belum Lunas</span>
+                                                    @endif
+                                                </td>
+                                                <td>
+                                                    <div class="action-buttons-group">
+                                                        @if ($loan->loan_status !== 'repaid' && Auth::user()->hasPermission('create_cash_advances'))
+                                                            <button 
+                                                                type="button" 
+                                                                class="btn-action btn-action-edit" 
+                                                                title="Bayar Angsuran"
+                                                                onclick="openRepaymentModal({{ $loan->id }}, '{{ $loan->transaction_number }}', '{{ $loan->recipient_name }}', '{{ number_format($loan->remaining_amount, 0, ',', '.') }}')"
+                                                                style="color: #60a5fa;"
+                                                            >
+                                                                <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                </svg>
+                                                            </button>
+                                                        @endif
+
+                                                        @if (Auth::user()->hasPermission('edit_cash_advances'))
+                                                            <button 
+                                                                type="button" 
+                                                                class="btn-action btn-action-edit" 
+                                                                title="Ubah Pinjaman"
+                                                                onclick="initiateEditLoan(this)"
+                                                                data-loan="{{ json_encode([
+                                                                    'id' => $loan->id,
+                                                                    'transaction_number' => $loan->transaction_number,
+                                                                    'transaction_date' => $loan->transaction_date->format('Y-m-d'),
+                                                                    'recipient_name' => $loan->recipient_name,
+                                                                    'amount' => number_format($loan->amount, 0, ',', '.'),
+                                                                    'payment_account_id' => $loan->payment_account_id,
+                                                                    'description' => $loan->description,
+                                                                ]) }}"
+                                                            >
+                                                                <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                                </svg>
+                                                            </button>
+                                                        @endif
+
+                                                        @if (Auth::user()->hasPermission('delete_cash_advances'))
+                                                            <button 
+                                                                type="button" 
+                                                                class="btn-action btn-action-delete" 
+                                                                title="Hapus Pinjaman"
+                                                                onclick="confirmDeleteLoan({{ $loan->id }}, '{{ $loan->transaction_number }}')"
+                                                            >
+                                                                <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                </svg>
+                                                            </button>
+                                                        @endif
+                                                    </div>
+                                                </td>
+                                            </tr>
+
+                                            @if (count($loan->repayments) > 0)
+                                                <tr id="repayments-row-{{ $loan->id }}" class="repayments-subtable-row" style="display: none; background: rgba(255, 255, 255, 0.02);">
+                                                    <td></td>
+                                                    <td colspan="11" style="padding: 12px 24px;">
+                                                        <div style="border-left: 3px solid var(--accent-color); padding-left: 16px; margin: 8px 0;">
+                                                            <h4 style="margin: 0 0 8px 0; font-size: 0.9rem; color: var(--text-secondary);">Riwayat Angsuran Pelunasan</h4>
+                                                            <table class="table" style="font-size: 0.85rem; width: 100%;">
+                                                                <thead>
+                                                                    <tr style="background: rgba(255,255,255,0.03);">
+                                                                        <th>No. Angsuran</th>
+                                                                        <th>Tanggal</th>
+                                                                        <th>Nominal Angsuran</th>
+                                                                        <th>Diterima Di</th>
+                                                                        <th>Keterangan</th>
+                                                                        <th>Pencatat</th>
+                                                                        <th style="width: 80px; text-align: center;">Aksi</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    @foreach ($loan->repayments as $rep)
+                                                                        <tr>
+                                                                            <td class="tx-number">{{ $rep->transaction_number }}</td>
+                                                                            <td>{{ $rep->transaction_date->format('d/m/Y') }}</td>
+                                                                            <td style="font-weight: 600; color: #34d399;">Rp {{ number_format($rep->amount, 0, ',', '.') }}</td>
+                                                                            <td>{{ $rep->destination_account }}</td>
+                                                                            <td>{{ $rep->description }}</td>
+                                                                            <td>{{ $rep->creator }}</td>
+                                                                            <td style="text-align: center;">
+                                                                                @if (Auth::user()->hasPermission('delete_cash_advances'))
+                                                                                    <button 
+                                                                                        type="button" 
+                                                                                        class="btn-action btn-action-delete" 
+                                                                                        title="Hapus Angsuran"
+                                                                                        onclick="confirmDeleteRepayment({{ $rep->id }}, '{{ $rep->transaction_number }}')"
+                                                                                        style="padding: 2px 6px;"
+                                                                                    >
+                                                                                        <svg style="width: 14px; height: 14px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                                        </svg>
+                                                                                    </button>
+                                                                                @else
+                                                                                    <span style="color: var(--text-muted); font-size: 0.75rem;">No Izin</span>
+                                                                                @endif
+                                                                            </td>
+                                                                        </tr>
+                                                                    @endforeach
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            @endif
+                                        @endforeach
+                                    @else
+                                        <tr>
+                                            <td colspan="12" style="text-align: center; color: var(--text-muted); padding: 32px 0;">Tidak ada catatan transaksi cash advance.</td>
+                                        </tr>
+                                    @endif
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
+
                 <!-- Section: Users & Roles (Management) -->
                 @if (Auth::user()->role === 'owner')
                     <div id="section-users" class="tab-section" style="display: none;">
@@ -644,8 +846,26 @@
                                                         @if ($usr->role === 'owner')
                                                             <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #a7f3d0; border: 1px solid rgba(16, 185, 129, 0.3); margin-bottom: 4px;">Akses Penuh (Owner Bypass)</span>
                                                         @elseif (is_array($usr->permissions) && count($usr->permissions) > 0)
+                                                            @php
+                                                                $permLabels = [
+                                                                    'view_transactions' => 'Lihat Transaksi',
+                                                                    'create_transactions' => 'Tambah Transaksi',
+                                                                    'edit_transactions' => 'Ubah Transaksi',
+                                                                    'delete_transactions' => 'Hapus Transaksi',
+                                                                    'view_settlements' => 'Lihat Settlement',
+                                                                    'create_settlements' => 'Tambah Settlement',
+                                                                    'process_settlements' => 'Proses Settle',
+                                                                    'edit_settlements' => 'Ubah Settlement',
+                                                                    'delete_settlements' => 'Hapus Settlement',
+                                                                    'view_cash_advances' => 'Lihat Cash Advance',
+                                                                    'create_cash_advances' => 'Tambah Cash Advance',
+                                                                    'edit_cash_advances' => 'Ubah Cash Advance',
+                                                                    'delete_cash_advances' => 'Hapus Cash Advance',
+                                                                    'view_coa' => 'Lihat COA'
+                                                                ];
+                                                            @endphp
                                                             @foreach ($usr->permissions as $p)
-                                                                <span class="badge badge-secondary" style="margin-right: 4px; margin-bottom: 4px; display: inline-block;">{{ $p }}</span>
+                                                                <span class="badge badge-secondary" style="margin-right: 4px; margin-bottom: 4px; display: inline-block;">{{ $permLabels[$p] ?? $p }}</span>
                                                             @endforeach
                                                         @else
                                                             <span style="color: var(--text-muted); font-size: 0.85rem;">Tidak ada izin aktif</span>
@@ -884,6 +1104,19 @@
                                 <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 0.9rem;">
                                     <input type="checkbox" name="permissions[]" value="delete_settlements" class="perm-checkbox"> Hapus Settlement (Delete)
                                 </label>
+                                <hr style="border: 0; border-top: 1px solid var(--border-glass); margin: 6px 0;">
+                                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 0.9rem;">
+                                    <input type="checkbox" name="permissions[]" value="view_cash_advances" class="perm-checkbox" checked> Lihat Menu Cash Advance
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 0.9rem;">
+                                    <input type="checkbox" name="permissions[]" value="create_cash_advances" class="perm-checkbox" checked> Tambah Cash Advance (Pinjaman)
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 0.9rem;">
+                                    <input type="checkbox" name="permissions[]" value="edit_cash_advances" class="perm-checkbox"> Ubah Cash Advance (Edit)
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 0.9rem;">
+                                    <input type="checkbox" name="permissions[]" value="delete_cash_advances" class="perm-checkbox"> Hapus Cash Advance (Delete)
+                                </label>
                             </div>
                         </div>
                     </div>
@@ -1060,6 +1293,156 @@
         </div>
     </div>
 
+    <!-- Modal: Cash Advance Loan (Pinjaman Karyawan) -->
+    <div id="loanModal" class="modal-overlay">
+        <div class="modal-card glass-panel">
+            <div class="modal-header">
+                <h3>Buat Pinjaman Baru</h3>
+                <button onclick="closeLoanModal()" class="modal-close">&times;</button>
+            </div>
+            <form action="{{ route('web.cash_advances.store') }}" method="POST">
+                @csrf
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Tanggal Pinjaman</label>
+                        <input type="date" name="transaction_date" class="form-input" required value="{{ date('Y-m-d') }}">
+                    </div>
+                    <div class="form-group" style="margin-top: 14px;">
+                        <label class="form-label">Nama Penerima (Karyawan)</label>
+                        <input type="text" name="recipient_name" class="form-input" required placeholder="Contoh: Budi Santoso">
+                    </div>
+                    <div class="form-group" style="margin-top: 14px;">
+                        <label class="form-label">Nominal Pinjaman (Rupiah)</label>
+                        <input type="text" name="amount" class="form-input rupiah-input" required placeholder="Contoh: 2.000.000">
+                    </div>
+                    <div class="form-group" style="margin-top: 14px;">
+                        <label class="form-label">Sumber Dana (Kas/Bank Asal)</label>
+                        <select name="payment_account_id" class="form-input form-select" required>
+                            @foreach ($paymentAccounts as $acc)
+                                <option value="{{ $acc->id }}">{{ $acc->code }} - {{ $acc->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-top: 14px;">
+                        <label class="form-label">Keterangan / Alasan Pinjaman</label>
+                        <textarea name="description" class="form-input" required rows="3" placeholder="Contoh: Pinjaman darurat biaya rumah sakit" style="resize: none;"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" onclick="closeLoanModal()" class="btn btn-secondary">Batal</button>
+                    <button type="submit" class="btn btn-primary">Catat Pinjaman</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Pay Loan Repayment (Bayar Angsuran) -->
+    <div id="repaymentModal" class="modal-overlay">
+        <div class="modal-card glass-panel">
+            <div class="modal-header">
+                <h3>Bayar Angsuran Pinjaman</h3>
+                <button onclick="closeRepaymentModal()" class="modal-close">&times;</button>
+            </div>
+            <form id="repaymentForm" action="" method="POST">
+                @csrf
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">No. Bukti Pinjaman</label>
+                        <input type="text" id="repay_loan_num" class="form-input" disabled style="background: rgba(255,255,255,0.05); color: var(--text-secondary);">
+                    </div>
+                    <div class="form-group" style="margin-top: 12px;">
+                        <label class="form-label">Nama Karyawan</label>
+                        <input type="text" id="repay_loan_recipient" class="form-input" disabled style="background: rgba(255,255,255,0.05); color: var(--text-secondary);">
+                    </div>
+                    <div class="form-group" style="margin-top: 12px;">
+                        <label class="form-label">Sisa Pinjaman Saat Ini</label>
+                        <input type="text" id="repay_loan_remaining" class="form-input" disabled style="background: rgba(255,255,255,0.05); color: var(--text-secondary);">
+                    </div>
+                    <hr style="border: 0; border-top: 1px solid var(--border-glass); margin: 16px 0;">
+
+                    <div class="form-group">
+                        <label class="form-label">Tanggal Pembayaran</label>
+                        <input type="date" name="transaction_date" class="form-input" required value="{{ date('Y-m-d') }}">
+                    </div>
+                    <div class="form-group" style="margin-top: 14px;">
+                        <label class="form-label">Nominal Angsuran (Rupiah)</label>
+                        <input type="text" name="amount" id="repayment_amount_input" class="form-input rupiah-input" required placeholder="Contoh: 500.000">
+                    </div>
+                    <div class="form-group" style="margin-top: 14px;">
+                        <label class="form-label">Diterima Di (Akun Kas/Bank Penerima)</label>
+                        <select name="payment_account_id" class="form-input form-select" required>
+                            @foreach ($paymentAccounts as $acc)
+                                <option value="{{ $acc->id }}">{{ $acc->code }} - {{ $acc->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-top: 14px;">
+                        <label class="form-label">Keterangan</label>
+                        <textarea name="description" class="form-input" required rows="2" placeholder="Contoh: Pembayaran angsuran cash advance ke-1" style="resize: none;"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" onclick="closeRepaymentModal()" class="btn btn-secondary">Batal</button>
+                    <button type="submit" class="btn btn-primary">Catat Angsuran</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Edit Cash Advance Loan (Ubah Pinjaman) -->
+    <div id="editLoanModal" class="modal-overlay">
+        <div class="modal-card glass-panel">
+            <div class="modal-header">
+                <h3>Ubah Pinjaman Cash Advance</h3>
+                <button onclick="closeEditLoanModal()" class="modal-close">&times;</button>
+            </div>
+            <form id="editLoanForm" action="" method="POST">
+                @csrf
+                @method('PUT')
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Tanggal Pinjaman</label>
+                        <input type="date" name="transaction_date" id="edit_loan_date" class="form-input" required>
+                    </div>
+                    <div class="form-group" style="margin-top: 14px;">
+                        <label class="form-label">Nama Penerima (Karyawan)</label>
+                        <input type="text" name="recipient_name" id="edit_loan_recipient" class="form-input" required placeholder="Contoh: Budi Santoso">
+                    </div>
+                    <div class="form-group" style="margin-top: 14px;">
+                        <label class="form-label">Nominal Pinjaman (Rupiah)</label>
+                        <input type="text" name="amount" id="edit_loan_amount" class="form-input rupiah-input" required placeholder="Contoh: 2.000.000">
+                    </div>
+                    <div class="form-group" style="margin-top: 14px;">
+                        <label class="form-label">Sumber Dana (Kas/Bank Asal)</label>
+                        <select name="payment_account_id" id="edit_loan_payment_account" class="form-input form-select" required>
+                            @foreach ($paymentAccounts as $acc)
+                                <option value="{{ $acc->id }}">{{ $acc->code }} - {{ $acc->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-top: 14px;">
+                        <label class="form-label">Keterangan / Alasan Pinjaman</label>
+                        <textarea name="description" id="edit_loan_description" class="form-input" required rows="3" style="resize: none;"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" onclick="closeEditLoanModal()" class="btn btn-secondary">Batal</button>
+                    <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Hidden form for deleting single loan and repayments -->
+    <form id="deleteLoanForm" action="" method="POST" style="display: none;">
+        @csrf
+        @method('DELETE')
+    </form>
+    <form id="deleteRepaymentForm" action="" method="POST" style="display: none;">
+        @csrf
+        @method('DELETE')
+    </form>
+
     <script>
         // ── Rupiah Input Formatting ──
         function formatRupiah(angka, prefix) {
@@ -1102,7 +1485,7 @@
             const existingAlert = document.getElementById('flashAlert');
             if (existingAlert) dismissAlert();
 
-            const tabs = ['dashboard', 'transactions', 'settlements', 'users', 'settings'];
+            const tabs = ['dashboard', 'transactions', 'settlements', 'cash-advances', 'users', 'settings'];
             tabs.forEach(t => {
                 const link = document.getElementById('nav-' + t);
                 const section = document.getElementById('section-' + t);
@@ -1128,6 +1511,7 @@
                 if (tabName === 'dashboard') titleEl.innerText = 'Dashboard Keuangan';
                 else if (tabName === 'transactions') titleEl.innerText = 'Rincian Transaksi';
                 else if (tabName === 'settlements') titleEl.innerText = 'Settlement';
+                else if (tabName === 'cash-advances') titleEl.innerText = 'Cash Advance';
                 else if (tabName === 'users') titleEl.innerText = 'User & Hak Akses';
                 else if (tabName === 'settings') titleEl.innerText = 'Pengaturan (COA)';
             }
@@ -1852,6 +2236,72 @@
             }
         }
 
+        // ── Cash Advance JS Handlers ──
+        function openLoanModal() {
+            document.getElementById('loanModal').classList.add('active');
+        }
+        function closeLoanModal() {
+            document.getElementById('loanModal').classList.remove('active');
+        }
+        function openRepaymentModal(id, loanNum, recipient, remaining) {
+            const form = document.getElementById('repaymentForm');
+            form.action = `/cash-advances/${id}/repay`;
+            
+            document.getElementById('repay_loan_num').value = loanNum;
+            document.getElementById('repay_loan_recipient').value = recipient;
+            document.getElementById('repay_loan_remaining').value = 'Rp ' + remaining;
+            
+            document.getElementById('repaymentModal').classList.add('active');
+        }
+        function closeRepaymentModal() {
+            document.getElementById('repaymentModal').classList.remove('active');
+        }
+        function initiateEditLoan(btn) {
+            try {
+                const loan = JSON.parse(btn.getAttribute('data-loan'));
+                const form = document.getElementById('editLoanForm');
+                form.action = `/cash-advances/${loan.id}`;
+                
+                document.getElementById('edit_loan_date').value = loan.transaction_date;
+                document.getElementById('edit_loan_recipient').value = loan.recipient_name;
+                document.getElementById('edit_loan_amount').value = loan.amount;
+                document.getElementById('edit_loan_payment_account').value = loan.payment_account_id;
+                document.getElementById('edit_loan_description').value = loan.description;
+                
+                document.getElementById('editLoanModal').classList.add('active');
+            } catch (e) {
+                console.error(e);
+            }
+        }
+        function closeEditLoanModal() {
+            document.getElementById('editLoanModal').classList.remove('active');
+        }
+        function confirmDeleteLoan(id, txNum) {
+            if (confirm(`Apakah Anda yakin ingin menghapus pinjaman ${txNum} beserta seluruh riwayat angsurannya?`)) {
+                const form = document.getElementById('deleteLoanForm');
+                form.action = `/cash-advances/${id}`;
+                form.submit();
+            }
+        }
+        function confirmDeleteRepayment(id, txNum) {
+            if (confirm(`Apakah Anda yakin ingin menghapus angsuran ${txNum}? Saldo pinjaman induk akan dikembalikan.`)) {
+                const form = document.getElementById('deleteRepaymentForm');
+                form.action = `/cash-advances/repay/${id}`;
+                form.submit();
+            }
+        }
+        function toggleRepaymentsRow(id, btn) {
+            const row = document.getElementById('repayments-row-' + id);
+            const icon = document.getElementById('toggle-icon-' + id);
+            if (row.style.display === 'none') {
+                row.style.display = 'table-row';
+                icon.style.transform = 'rotate(90deg)';
+            } else {
+                row.style.display = 'none';
+                icon.style.transform = 'rotate(0deg)';
+            }
+        }
+
         // Close on Escape key
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') closeSidebar();
@@ -1873,6 +2323,18 @@
             }
             if (event.target === settleModal) {
                 closeSettleModal();
+            }
+            if (event.target === document.getElementById('editSettlementModal')) {
+                closeEditSettlementModal();
+            }
+            if (event.target === document.getElementById('loanModal')) {
+                closeLoanModal();
+            }
+            if (event.target === document.getElementById('repaymentModal')) {
+                closeRepaymentModal();
+            }
+            if (event.target === document.getElementById('editLoanModal')) {
+                closeEditLoanModal();
             }
         }
     </script>
