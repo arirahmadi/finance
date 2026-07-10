@@ -1256,3 +1256,13 @@ h1, h2, h3, h4 {
         padding: 20px 16px;
     }
 }
+
+/* ── Monospaced Transaction Number Helper ── */
+.tx-number {
+    font-family: monospace;
+    font-weight: 600;
+    color: var(--text-secondary) !important;
+    white-space: nowrap;
+    font-size: 0.88rem;
+    letter-spacing: -0.01em;
+}

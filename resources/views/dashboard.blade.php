@@ -309,7 +309,7 @@
                                                         <input type="checkbox" class="tx-checkbox" value="{{ $tx->id }}" style="cursor: pointer;" onclick="updateBulkDeleteState()">
                                                     </td>
                                                 @endif
-                                                <td style="font-family: monospace; font-weight: 600; color: var(--text-secondary);">
+                                                <td class="tx-number">
                                                     {{ $tx->transaction_number }}
                                                 </td>
                                                 <td>{{ $tx->transaction_date->format('d/m/Y') }}</td>
@@ -514,7 +514,7 @@
                                                         <input type="checkbox" class="settlement-checkbox" value="{{ $adv->id }}" style="cursor: pointer;" onclick="updateBulkDeleteSettlementsState()">
                                                     </td>
                                                 @endif
-                                                <td style="font-family: monospace; font-weight: 600; color: var(--text-secondary);">{{ $adv->transaction_number }}</td>
+                                                <td class="tx-number">{{ $adv->transaction_number }}</td>
                                                 <td>{{ $adv->transaction_date->format('d/m/Y') }}</td>
                                                 <td><span style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);">{{ $adv->recipient_name ?? '-' }}</span></td>
                                                 <td><span style="font-size: 0.85rem; color: var(--text-secondary);">{{ $adv->creator }}</span></td>
