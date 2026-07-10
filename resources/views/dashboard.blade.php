@@ -2067,6 +2067,12 @@
         const menuPillText    = document.getElementById('menuPillText');
 
         function openSidebar() {
+            // Apply dynamic stagger delays to visible items
+            const navItems = sidebarDrawer.querySelectorAll('.sidebar-nav-item');
+            navItems.forEach((item, index) => {
+                item.style.transitionDelay = `${0.08 + (index * 0.06)}s`;
+            });
+
             sidebarDrawer.classList.add('open');
             sidebarBackdrop.classList.add('active');
             menuPillBtn.classList.add('open');
@@ -2082,6 +2088,12 @@
             menuPillText.textContent = 'MENU';
             menuPillPlus.textContent = '+';
             document.body.style.overflow = '';
+
+            // Reset transition delay so closing is immediate/clean
+            const navItems = sidebarDrawer.querySelectorAll('.sidebar-nav-item');
+            navItems.forEach(item => {
+                item.style.transitionDelay = '';
+            });
         }
 
         function toggleSidebar() {
