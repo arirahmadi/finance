@@ -1181,6 +1181,10 @@ h1, h2, h3, h4 {
 .sidebar-drawer.open .sidebar-nav-item:nth-child(2) { opacity: 1; transform: translateY(0); transition-delay: 0.14s; }
 .sidebar-drawer.open .sidebar-nav-item:nth-child(3) { opacity: 1; transform: translateY(0); transition-delay: 0.20s; }
 .sidebar-drawer.open .sidebar-nav-item:nth-child(4) { opacity: 1; transform: translateY(0); transition-delay: 0.26s; }
+.sidebar-drawer.open .sidebar-nav-item:nth-child(5) { opacity: 1; transform: translateY(0); transition-delay: 0.32s; }
+.sidebar-drawer.open .sidebar-nav-item:nth-child(6) { opacity: 1; transform: translateY(0); transition-delay: 0.38s; }
+.sidebar-drawer.open .sidebar-nav-item:nth-child(7) { opacity: 1; transform: translateY(0); transition-delay: 0.44s; }
+.sidebar-drawer.open .sidebar-nav-item:nth-child(8) { opacity: 1; transform: translateY(0); transition-delay: 0.50s; }
 
 /* Hover: separate pseudo-element background so transform doesn't break */
 .sidebar-nav-item::before {
