@@ -318,6 +318,15 @@
                                                         <span class="badge badge-in">Masuk</span>
                                                     @else
                                                         <span class="badge badge-out">Keluar</span>
+                                                        @if ($tx->is_reimbursement)
+                                                            <div style="margin-top: 4px;">
+                                                                @if ($tx->reimbursement_status === 'pending')
+                                                                    <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 0.7rem; padding: 2px 6px; display: inline-block;">Reimburse (Pending)</span>
+                                                                @else
+                                                                    <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 0.7rem; padding: 2px 6px; display: inline-block;">Reimburse (Ditransfer)</span>
+                                                                @endif
+                                                            </div>
+                                                        @endif
                                                     @endif
                                                 </td>
                                                 <td>
@@ -337,24 +346,54 @@
                                                     @endif
                                                 </td>
                                                 <td>
-                                                    @if ($tx->attachments->isNotEmpty())
-                                                        <button 
-                                                            type="button" 
-                                                            class="btn btn-secondary btn-sm" 
-                                                            style="padding: 4px 10px; font-size: 0.75rem;"
-                                                            onclick="openReceiptModal('{{ $tx->attachments->first()->url }}', '{{ addslashes($tx->attachments->first()->original_name) }}')"
-                                                        >
-                                                            Lihat Bon
-                                                        </button>
-                                                    @else
-                                                        <span style="color: var(--text-muted); font-size: 0.8rem;">Tidak ada</span>
-                                                    @endif
+                                                    <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-start;">
+                                                        @if ($tx->attachments->isNotEmpty())
+                                                            <button 
+                                                                type="button" 
+                                                                class="btn btn-secondary btn-sm" 
+                                                                style="padding: 4px 10px; font-size: 0.75rem; width: 100%; text-align: center;"
+                                                                onclick="openReceiptModal('{{ $tx->attachments->first()->url }}', '{{ addslashes($tx->attachments->first()->original_name) }}')"
+                                                            >
+                                                                Lihat Bon
+                                                            </button>
+                                                        @endif
+                                                        
+                                                        @if ($tx->is_reimbursement && $tx->transfer_proof_path)
+                                                            <button 
+                                                                type="button" 
+                                                                class="btn btn-info btn-sm" 
+                                                                style="padding: 4px 10px; font-size: 0.75rem; width: 100%; text-align: center; background: rgba(59, 130, 246, 0.1); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.2);"
+                                                                onclick="openReceiptModal('{{ route('web.attachments.show', ['path' => $tx->transfer_proof_path]) }}', 'Bukti Transfer')"
+                                                            >
+                                                                Lihat Transfer
+                                                            </button>
+                                                        @endif
+                                                        
+                                                        @if ($tx->attachments->isEmpty() && (!$tx->is_reimbursement || !$tx->transfer_proof_path))
+                                                            <span style="color: var(--text-muted); font-size: 0.8rem;">Tidak ada</span>
+                                                        @endif
+                                                    </div>
                                                 </td>
                                                 <td>
                                                     <span style="font-size: 0.85rem; color: var(--text-secondary);">{{ $tx->creator }}</span>
                                                 </td>
                                                 <td>
                                                     <div style="display: flex; gap: 4px;">
+                                                        <!-- Reimbursement transfer button -->
+                                                        @if ($tx->is_reimbursement && $tx->reimbursement_status === 'pending' && Auth::user()->hasPermission('edit_transactions'))
+                                                            <button 
+                                                                type="button" 
+                                                                class="btn-action" 
+                                                                style="background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2);"
+                                                                title="Transfer Pembayaran"
+                                                                onclick="openReimburseTransferModal({{ $tx->id }}, '{{ $tx->transaction_number }}', {{ $tx->amount }})"
+                                                            >
+                                                                <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                                                                </svg>
+                                                            </button>
+                                                        @endif
+
                                                         <!-- Edit button -->
                                                         @if (Auth::user()->hasPermission('edit_transactions'))
                                                             <button 
@@ -371,7 +410,12 @@
                                                                 'description' => $tx->description,
                                                                 'hasReceipt' => $tx->attachments->isNotEmpty(),
                                                                 'receiptUrl' => $tx->attachments->isNotEmpty() ? $tx->attachments->first()->url : '',
-                                                                'receiptName' => $tx->attachments->isNotEmpty() ? $tx->attachments->first()->original_name : ''
+                                                                'receiptName' => $tx->attachments->isNotEmpty() ? $tx->attachments->first()->original_name : '',
+                                                                'isReimbursement' => $tx->is_reimbursement,
+                                                                'reimbursementStatus' => $tx->reimbursement_status,
+                                                                'hasTransferProof' => !empty($tx->transfer_proof_path),
+                                                                'transferProofUrl' => $tx->transfer_proof_path ? route('web.attachments.show', ['path' => $tx->transfer_proof_path]) : '',
+                                                                'transferProofName' => $tx->transfer_proof_path ? basename($tx->transfer_proof_path) : ''
                                                             ]) }}"
                                                             onclick="initiateEdit(this)"
                                                         >
@@ -975,8 +1019,31 @@
                         </select>
                     </div>
 
+                    <!-- Reimbursement Fields -->
+                    <div class="form-group" id="reimbursementCheckboxSection" style="margin-top: 14px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600;">
+                            <input type="checkbox" name="is_reimbursement" id="tx_is_reimbursement" value="1" onchange="toggleReimbursementFields()"> 
+                            <span>Reimbursement (Penggantian Uang Karyawan)</span>
+                        </label>
+                    </div>
+
+                    <div id="reimbursementDetailsSection" style="display: none; background: rgba(255, 255, 255, 0.05); padding: 12px; border-radius: 8px; border: 1px solid var(--border-glass); margin-top: 10px; margin-bottom: 14px;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500;">
+                                <input type="checkbox" name="reimbursement_status" id="tx_reimbursement_status" value="transferred" onchange="toggleReimbursementTransferFields()"> 
+                                <span>Sudah Ditransfer oleh Perusahaan</span>
+                            </label>
+                        </div>
+                        
+                        <div id="reimbursementTransferProofGroup" style="display: none; margin-top: 12px;">
+                            <label class="form-label" style="margin-bottom: 6px;">Unggah Bukti Transfer Bank</label>
+                            <input type="file" name="transfer_proof" id="tx_transfer_proof" class="form-input" accept="image/*,application/pdf">
+                            <span id="transferProofUploadMsg" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-top: 2px;">Unggah bukti transfer bank. Max: 5MB</span>
+                        </div>
+                    </div>
+
                     <!-- Payment Asset Account Selector (Kas/Bank) -->
-                    <div class="form-group">
+                    <div class="form-group" id="groupPaymentAccount">
                         <label for="payment_account_id" class="form-label">Sumber Kas / Bank</label>
                         <select name="payment_account_id" id="payment_account_id" class="form-input form-select" required>
                             @foreach ($paymentAccounts as $acc)
@@ -1433,6 +1500,45 @@
         </div>
     </div>
 
+    <!-- Modal: Bayar Reimbursement -->
+    <div id="reimburseTransferModal" class="modal-overlay">
+        <div class="modal-card glass-panel">
+            <div class="modal-header">
+                <h3>Bayar Reimbursement</h3>
+                <button onclick="closeReimburseTransferModal()" class="modal-close">&times;</button>
+            </div>
+            <form id="reimburseTransferForm" action="" method="POST" enctype="multipart/form-data">
+                @csrf
+                <div class="modal-body">
+                    <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 16px;">
+                        Tandai reimbursement <strong id="reimburseTxNumber">TX-XXXX</strong> sebesar <strong id="reimburseTxAmount">Rp 0</strong> sudah ditransfer dan unggah buktinya.
+                    </p>
+                    <div class="form-group">
+                        <label class="form-label">Tanggal Transfer</label>
+                        <input type="date" name="transfer_date" class="form-input" required value="{{ date('Y-m-d') }}">
+                    </div>
+                    <div class="form-group" style="margin-top: 14px;">
+                        <label class="form-label">Sumber Kas / Bank Pembayar</label>
+                        <select name="payment_account_id" class="form-input form-select" required>
+                            @foreach ($paymentAccounts as $acc)
+                                <option value="{{ $acc->id }}">{{ $acc->code }} - {{ $acc->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-top: 14px;">
+                        <label class="form-label">Unggah Bukti Transfer Bank</label>
+                        <input type="file" name="transfer_proof" class="form-input" accept="image/*,application/pdf" required>
+                        <span style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-top: 2px;">Wajib mengunggah bukti transfer fisik. Max: 5MB</span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" onclick="closeReimburseTransferModal()" class="btn btn-secondary">Batal</button>
+                    <button type="submit" class="btn btn-success">Konfirmasi Sudah Ditransfer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Hidden form for deleting single loan and repayments -->
     <form id="deleteLoanForm" action="" method="POST" style="display: none;">
         @csrf
@@ -1611,6 +1717,18 @@
             selectExpense.value = '';
             selectRevenue.value = '';
 
+            // Reset Reimbursement fields
+            const checkboxIsReimbursement = document.getElementById('tx_is_reimbursement');
+            const checkboxReimbursementStatus = document.getElementById('tx_reimbursement_status');
+            const fileTransferProof = document.getElementById('tx_transfer_proof');
+            const transferProofMsg = document.getElementById('transferProofUploadMsg');
+            const reimbursementSection = document.getElementById('reimbursementCheckboxSection');
+
+            if (checkboxIsReimbursement) checkboxIsReimbursement.checked = false;
+            if (checkboxReimbursementStatus) checkboxReimbursementStatus.checked = false;
+            if (fileTransferProof) fileTransferProof.value = '';
+            if (transferProofMsg) transferProofMsg.innerHTML = 'Unggah bukti transfer bank. Max: 5MB';
+
             // Reset File input preview
             document.getElementById('tx_receipt').value = '';
             document.getElementById('fileUploadMsg').innerHTML = 'Drag & Drop file foto / PDF di sini, atau <strong>pilih file</strong>';
@@ -1626,6 +1744,8 @@
                 groupRevenue.style.display = 'block';
                 selectRevenue.disabled = false;
                 selectRevenue.setAttribute('required', 'required');
+
+                if (reimbursementSection) reimbursementSection.style.display = 'none';
             } else {
                 modalTitle.innerText = 'Tambah Uang Keluar';
 
@@ -1636,8 +1756,11 @@
                 groupExpense.style.display = 'block';
                 selectExpense.disabled = false;
                 selectExpense.setAttribute('required', 'required');
+
+                if (reimbursementSection) reimbursementSection.style.display = 'block';
             }
 
+            toggleReimbursementFields();
             transactionModal.classList.add('active');
         }
 
@@ -1660,7 +1783,24 @@
             document.getElementById('tx_date').value = tx.date;
             document.getElementById('tx_amount').value = formatRupiah(tx.amount.toString());
             document.getElementById('tx_description').value = tx.description || '';
-            selectPayment.value = tx.paymentAccountId;
+            selectPayment.value = tx.paymentAccountId || '';
+
+            // Populate Reimbursement fields
+            const checkboxIsReimbursement = document.getElementById('tx_is_reimbursement');
+            const checkboxReimbursementStatus = document.getElementById('tx_reimbursement_status');
+            const fileTransferProof = document.getElementById('tx_transfer_proof');
+            const transferProofMsg = document.getElementById('transferProofUploadMsg');
+            const reimbursementSection = document.getElementById('reimbursementCheckboxSection');
+
+            if (checkboxIsReimbursement) checkboxIsReimbursement.checked = tx.isReimbursement;
+            if (checkboxReimbursementStatus) checkboxReimbursementStatus.checked = (tx.reimbursementStatus === 'transferred');
+            if (fileTransferProof) fileTransferProof.value = '';
+            
+            if (tx.hasTransferProof) {
+                if (transferProofMsg) transferProofMsg.innerHTML = `Bukti transfer saat ini: <strong>${tx.transferProofName}</strong><br><span style="font-size: 0.8rem; color: var(--text-muted);">Pilih file baru jika ingin mengganti</span>`;
+            } else {
+                if (transferProofMsg) transferProofMsg.innerHTML = 'Unggah bukti transfer bank. Max: 5MB';
+            }
 
             // Reset File input value
             document.getElementById('tx_receipt').value = '';
@@ -1676,6 +1816,8 @@
                 selectRevenue.disabled = false;
                 selectRevenue.setAttribute('required', 'required');
                 selectRevenue.value = tx.categoryId;
+
+                if (reimbursementSection) reimbursementSection.style.display = 'none';
             } else {
                 modalTitle.innerText = 'Ubah Transaksi Uang Keluar';
 
@@ -1687,7 +1829,11 @@
                 selectExpense.disabled = false;
                 selectExpense.setAttribute('required', 'required');
                 selectExpense.value = tx.categoryId;
+
+                if (reimbursementSection) reimbursementSection.style.display = 'block';
             }
+
+            toggleReimbursementFields();
 
             // Pre-populate receipt preview
             const uploadMsg = document.getElementById('fileUploadMsg');
@@ -1721,6 +1867,71 @@
 
         function closeTransactionModal() {
             transactionModal.classList.remove('active');
+        }
+
+        // Toggles visibility of the reimbursement check details
+        function toggleReimbursementFields() {
+            const isReimbursementCheckbox = document.getElementById('tx_is_reimbursement');
+            const detailsSection = document.getElementById('reimbursementDetailsSection');
+            
+            if (isReimbursementCheckbox && isReimbursementCheckbox.checked) {
+                if (detailsSection) detailsSection.style.display = 'block';
+            } else {
+                if (detailsSection) detailsSection.style.display = 'none';
+                const statusCheckbox = document.getElementById('tx_reimbursement_status');
+                if (statusCheckbox) statusCheckbox.checked = false;
+            }
+            toggleReimbursementTransferFields();
+        }
+
+        // Toggles required attributes & visibility of source Kas/Bank and transfer proof file
+        function toggleReimbursementTransferFields() {
+            const isReimbursementCheckbox = document.getElementById('tx_is_reimbursement');
+            const statusCheckbox = document.getElementById('tx_reimbursement_status');
+            const proofGroup = document.getElementById('reimbursementTransferProofGroup');
+            const paymentGroup = document.getElementById('groupPaymentAccount');
+            const paymentSelect = document.getElementById('payment_account_id');
+            const fileInput = document.getElementById('tx_transfer_proof');
+
+            if (isReimbursementCheckbox && isReimbursementCheckbox.checked) {
+                if (statusCheckbox && statusCheckbox.checked) {
+                    if (proofGroup) proofGroup.style.display = 'block';
+                    if (paymentGroup) paymentGroup.style.display = 'block';
+                    if (paymentSelect) {
+                        paymentSelect.setAttribute('required', 'required');
+                        paymentSelect.disabled = false;
+                    }
+                } else {
+                    if (proofGroup) proofGroup.style.display = 'none';
+                    if (paymentGroup) paymentGroup.style.display = 'none';
+                    if (paymentSelect) {
+                        paymentSelect.removeAttribute('required');
+                        paymentSelect.disabled = true;
+                    }
+                    if (fileInput) fileInput.value = '';
+                }
+            } else {
+                if (proofGroup) proofGroup.style.display = 'none';
+                if (paymentGroup) paymentGroup.style.display = 'block';
+                if (paymentSelect) {
+                    paymentSelect.setAttribute('required', 'required');
+                    paymentSelect.disabled = false;
+                }
+                if (fileInput) fileInput.value = '';
+            }
+        }
+
+        // Action modal handlers for marking pending reimbursement as transferred
+        function openReimburseTransferModal(id, number, amount) {
+            const form = document.getElementById('reimburseTransferForm');
+            form.action = `/transactions/${id}/transfer-reimburse`;
+            document.getElementById('reimburseTxNumber').innerText = number;
+            document.getElementById('reimburseTxAmount').innerText = 'Rp ' + formatRupiah(amount.toString());
+            document.getElementById('reimburseTransferModal').classList.add('active');
+        }
+
+        function closeReimburseTransferModal() {
+            document.getElementById('reimburseTransferModal').classList.remove('active');
         }
 
         // Live File Upload Preview

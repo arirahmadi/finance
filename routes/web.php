@@ -15,6 +15,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/transactions/bulk', [WebController::class, 'bulkDeleteTransaction'])->name('web.transactions.bulkDestroy');
     Route::put('/transactions/{id}', [WebController::class, 'editTransaction'])->name('web.transactions.update');
     Route::delete('/transactions/{id}', [WebController::class, 'deleteTransaction'])->name('web.transactions.destroy');
+    Route::post('/transactions/{id}/transfer-reimburse', [WebController::class, 'transferReimbursement'])->name('web.transactions.transferReimbursement');
     Route::get('/export/csv', [WebController::class, 'exportCsv'])->name('web.export.csv');
 
     // Users & Roles Management

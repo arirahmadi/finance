@@ -24,6 +24,9 @@ class Transaction extends Model
         'loan_status',
         'loan_repaid_amount',
         'loan_parent_id',
+        'is_reimbursement',
+        'reimbursement_status',
+        'transfer_proof_path',
         'created_by'
     ];
 
@@ -32,6 +35,7 @@ class Transaction extends Model
         'is_advance' => 'boolean',
         'settled_at' => 'datetime',
         'is_loan' => 'boolean',
+        'is_reimbursement' => 'boolean',
     ];
 
     public function journalEntries(): HasMany

@@ -98,9 +98,9 @@ class WebController extends Controller
 
             foreach ($tx->journalEntries as $entry) {
                 $accCode = $entry->account->code;
-                $isAsset = Str::startsWith($accCode, '11');
+                $isPaymentSource = Str::startsWith($accCode, '11') || Str::startsWith($accCode, '21');
 
-                if ($isAsset) {
+                if ($isPaymentSource) {
                     $paymentSource = $entry->account->name;
                     $paymentAccountId = $entry->account_id;
                     $amount = floatval($entry->amount);
@@ -136,6 +136,10 @@ class WebController extends Controller
                 'category_id' => $categoryId,
                 'payment_source' => $paymentSource,
                 'payment_account_id' => $paymentAccountId,
+                'is_reimbursement' => $tx->is_reimbursement,
+                'reimbursement_status' => $tx->reimbursement_status,
+                'transfer_proof_path' => $tx->transfer_proof_path,
+                'transfer_proof_url' => $tx->transfer_proof_path ? route('web.attachments.show', ['path' => $tx->transfer_proof_path]) : null,
                 'attachments' => $tx->attachments,
                 'creator' => $tx->creator->name ?? null,
             ];
@@ -332,14 +336,21 @@ class WebController extends Controller
      */
     public function storeTransaction(Request $request): RedirectResponse
     {
+        if (!Auth::user()->hasPermission('create_transactions')) {
+            return back()->withErrors(['auth' => 'Anda tidak memiliki hak akses untuk membuat transaksi.']);
+        }
+
         $request->validate([
             'type' => ['required', 'in:in,out'],
             'amount' => ['required', 'numeric', 'min:0.01'],
             'account_id' => ['required', 'exists:accounts,id'],
-            'payment_account_id' => ['required', 'exists:accounts,id'],
+            'payment_account_id' => [\Illuminate\Validation\Rule::requiredIf(fn() => !$request->is_reimbursement || $request->reimbursement_status === 'transferred'), 'nullable', 'exists:accounts,id'],
             'transaction_date' => ['required', 'date'],
             'description' => ['nullable', 'string', 'max:500'],
             'receipt' => ['nullable', 'file', 'mimes:jpeg,png,jpg,pdf', 'max:5120'], // Max 5MB
+            'is_reimbursement' => ['nullable', 'boolean'],
+            'reimbursement_status' => ['nullable', 'in:pending,transferred'],
+            'transfer_proof' => ['nullable', 'file', 'mimes:jpeg,png,jpg,pdf', 'max:5120'],
         ]);
 
         $date = Carbon::parse($request->transaction_date);
@@ -361,29 +372,57 @@ class WebController extends Controller
             }
             $transactionNumber = $prefix . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
 
+            // Handle transfer proof path
+            $transferProofPath = null;
+            if ($request->is_reimbursement && $request->reimbursement_status === 'transferred' && $request->hasFile('transfer_proof')) {
+                $file = $request->file('transfer_proof');
+                $filename = Str::uuid() . '.' . $file->getClientOriginalExtension();
+                $transferProofPath = $file->storeAs('receipts', $filename, 'public');
+            }
+
             // Create Transaction
             $tx = Transaction::create([
                 'transaction_number' => $transactionNumber,
                 'transaction_date' => $date,
                 'description' => $request->description,
+                'is_reimbursement' => $request->is_reimbursement ? true : false,
+                'reimbursement_status' => $request->is_reimbursement ? ($request->reimbursement_status ?: 'pending') : null,
+                'transfer_proof_path' => $transferProofPath,
                 'created_by' => $userId,
             ]);
 
             // Post Jurnal Double Entry
             if ($request->type === 'out') {
-                // Cash Outflow
-                JournalEntry::create([
-                    'transaction_id' => $tx->id,
-                    'account_id' => $request->account_id,
-                    'type' => 'debit',
-                    'amount' => $request->amount,
-                ]);
-                JournalEntry::create([
-                    'transaction_id' => $tx->id,
-                    'account_id' => $request->payment_account_id,
-                    'type' => 'credit',
-                    'amount' => $request->amount,
-                ]);
+                if ($tx->is_reimbursement && $tx->reimbursement_status === 'pending') {
+                    // Pending Reimbursement Jurnal: Debit Kategori Beban, Credit Utang Usaha (2101)
+                    $utangAcc = Account::where('code', '2101')->firstOrFail();
+                    JournalEntry::create([
+                        'transaction_id' => $tx->id,
+                        'account_id' => $request->account_id,
+                        'type' => 'debit',
+                        'amount' => $request->amount,
+                    ]);
+                    JournalEntry::create([
+                        'transaction_id' => $tx->id,
+                        'account_id' => $utangAcc->id,
+                        'type' => 'credit',
+                        'amount' => $request->amount,
+                    ]);
+                } else {
+                    // Cash Outflow (Normal or Transferred Reimbursement)
+                    JournalEntry::create([
+                        'transaction_id' => $tx->id,
+                        'account_id' => $request->account_id,
+                        'type' => 'debit',
+                        'amount' => $request->amount,
+                    ]);
+                    JournalEntry::create([
+                        'transaction_id' => $tx->id,
+                        'account_id' => $request->payment_account_id,
+                        'type' => 'credit',
+                        'amount' => $request->amount,
+                    ]);
+                }
             } else {
                 // Cash Inflow
                 JournalEntry::create([
@@ -516,41 +555,91 @@ class WebController extends Controller
             'type' => ['required', 'in:in,out'],
             'amount' => ['required', 'numeric', 'min:0.01'],
             'account_id' => ['required', 'exists:accounts,id'],
-            'payment_account_id' => ['required', 'exists:accounts,id'],
+            'payment_account_id' => [\Illuminate\Validation\Rule::requiredIf(fn() => !$request->is_reimbursement || $request->reimbursement_status === 'transferred'), 'nullable', 'exists:accounts,id'],
             'transaction_date' => ['required', 'date'],
             'description' => ['nullable', 'string', 'max:500'],
             'receipt' => ['nullable', 'file', 'mimes:jpeg,png,jpg,pdf', 'max:5120'], // Max 5MB
+            'is_reimbursement' => ['nullable', 'boolean'],
+            'reimbursement_status' => ['nullable', 'in:pending,transferred'],
+            'transfer_proof' => ['nullable', 'file', 'mimes:jpeg,png,jpg,pdf', 'max:5120'],
         ]);
 
         $tx = Transaction::findOrFail($id);
         $date = Carbon::parse($request->transaction_date);
 
         DB::transaction(function () use ($request, $tx, $date) {
+            // Manage transfer proof file replacement
+            $transferProofPath = $tx->transfer_proof_path;
+            if ($request->is_reimbursement) {
+                if ($request->reimbursement_status === 'transferred') {
+                    if ($request->hasFile('transfer_proof')) {
+                        if ($tx->transfer_proof_path) {
+                            Storage::disk('public')->delete($tx->transfer_proof_path);
+                        }
+                        $file = $request->file('transfer_proof');
+                        $filename = Str::uuid() . '.' . $file->getClientOriginalExtension();
+                        $transferProofPath = $file->storeAs('receipts', $filename, 'public');
+                    }
+                } else {
+                    // Changing to pending: clear transfer proof
+                    if ($tx->transfer_proof_path) {
+                        Storage::disk('public')->delete($tx->transfer_proof_path);
+                        $transferProofPath = null;
+                    }
+                }
+            } else {
+                // Changing to normal: clear transfer proof
+                if ($tx->transfer_proof_path) {
+                    Storage::disk('public')->delete($tx->transfer_proof_path);
+                    $transferProofPath = null;
+                }
+            }
+
             // 1. Update transaction header
             $tx->update([
                 'transaction_date' => $date,
                 'description' => $request->description,
+                'is_reimbursement' => $request->is_reimbursement ? true : false,
+                'reimbursement_status' => $request->is_reimbursement ? ($request->reimbursement_status ?: 'pending') : null,
+                'transfer_proof_path' => $transferProofPath,
             ]);
 
             // 2. Clear old journal entries and recreate them
             JournalEntry::where('transaction_id', $tx->id)->delete();
 
             if ($request->type === 'out') {
-                // Cash Outflow
-                JournalEntry::create([
-                    'transaction_id' => $tx->id,
-                    'account_id' => $request->account_id,
-                    'type' => 'debit',
-                    'amount' => $request->amount,
-                ]);
-                JournalEntry::create([
-                    'transaction_id' => $tx->id,
-                    'account_id' => $request->payment_account_id,
-                    'type' => 'credit',
-                    'amount' => $request->amount,
-                ]);
+                if ($tx->is_reimbursement && $tx->reimbursement_status === 'pending') {
+                    // Debit category, Credit Utang Usaha (2101)
+                    $utangAcc = Account::where('code', '2101')->firstOrFail();
+                    JournalEntry::create([
+                        'transaction_id' => $tx->id,
+                        'account_id' => $request->account_id,
+                        'type' => 'debit',
+                        'amount' => $request->amount,
+                    ]);
+                    JournalEntry::create([
+                        'transaction_id' => $tx->id,
+                        'account_id' => $utangAcc->id,
+                        'type' => 'credit',
+                        'amount' => $request->amount,
+                    ]);
+                } else {
+                    // Normal Outflow or Transferred Reimbursement: Debit category, Credit Kas/Bank
+                    JournalEntry::create([
+                        'transaction_id' => $tx->id,
+                        'account_id' => $request->account_id,
+                        'type' => 'debit',
+                        'amount' => $request->amount,
+                    ]);
+                    JournalEntry::create([
+                        'transaction_id' => $tx->id,
+                        'account_id' => $request->payment_account_id,
+                        'type' => 'credit',
+                        'amount' => $request->amount,
+                    ]);
+                }
             } else {
-                // Cash Inflow
+                // Cash Inflow: Debit Kas/Bank, Credit category
                 JournalEntry::create([
                     'transaction_id' => $tx->id,
                     'account_id' => $request->payment_account_id,
@@ -1390,5 +1479,68 @@ class WebController extends Controller
         });
 
         return redirect()->route('dashboard', ['activeTab' => 'cash-advances'])->with('success', 'Catatan angsuran berhasil dihapus dan saldo pinjaman dipulihkan!');
+    }
+
+    /**
+     * Mark a pending reimbursement as transferred & post cash reduction journal entry.
+     */
+    public function transferReimbursement(Request $request, int $id): RedirectResponse
+    {
+        if (!Auth::user()->hasPermission('edit_transactions')) {
+            return back()->withErrors(['auth' => 'Akses Ditolak: Anda tidak memiliki izin untuk mengedit transaksi.']);
+        }
+
+        $request->validate([
+            'payment_account_id' => ['required', 'exists:accounts,id'],
+            'transfer_date' => ['required', 'date'],
+            'transfer_proof' => ['required', 'file', 'mimes:jpeg,png,jpg,pdf', 'max:5120'], // Max 5MB
+        ]);
+
+        $tx = Transaction::findOrFail($id);
+        if (!$tx->is_reimbursement || $tx->reimbursement_status !== 'pending') {
+            return back()->withErrors(['error' => 'Transaksi bukan reimbursement pending.']);
+        }
+
+        $date = Carbon::parse($request->transfer_date);
+
+        DB::transaction(function () use ($request, $tx, $date) {
+            // Upload transfer proof file
+            $file = $request->file('transfer_proof');
+            $filename = Str::uuid() . '.' . $file->getClientOriginalExtension();
+            $path = $file->storeAs('receipts', $filename, 'public');
+
+            // Update transaction status
+            $tx->update([
+                'reimbursement_status' => 'transferred',
+                'transfer_proof_path' => $path,
+            ]);
+
+            // Recreate journal entries to Debit expense account, Credit Kas/Bank
+            $expenseEntry = JournalEntry::where('transaction_id', $tx->id)
+                ->where('type', 'debit')
+                ->first();
+
+            $amount = $expenseEntry ? floatval($expenseEntry->amount) : 0;
+            $expenseAccountId = $expenseEntry ? $expenseEntry->account_id : Account::where('code', 'like', '5%')->first()->id;
+
+            // Clear old entries and recreate
+            JournalEntry::where('transaction_id', $tx->id)->delete();
+
+            JournalEntry::create([
+                'transaction_id' => $tx->id,
+                'account_id' => $expenseAccountId,
+                'type' => 'debit',
+                'amount' => $amount,
+            ]);
+
+            JournalEntry::create([
+                'transaction_id' => $tx->id,
+                'account_id' => $request->payment_account_id,
+                'type' => 'credit',
+                'amount' => $amount,
+            ]);
+        });
+
+        return back()->with('success', 'Pembayaran reimbursement berhasil ditransfer!');
     }
 }
