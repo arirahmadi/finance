@@ -507,7 +507,7 @@
                     </div> <!-- Close sub-section-transactions -->
 
                 <!-- Sub-panel: Settlements (Advance & Settlement) -->
-                <div id="sub-section-settlements" class="sub-tab-panel">
+                <div id="sub-section-settlements" class="sub-tab-panel" style="display: none;">
                     <section class="kpi-grid">
                         <div class="kpi-card glass-panel kpi-outflow">
                             <div class="kpi-title">Outstanding (Hutang Karyawan)</div>
@@ -672,7 +672,7 @@
                     </div> <!-- Close sub-section-settlements -->
 
                 <!-- Sub-panel: Cash Advances (Pinjaman Karyawan) -->
-                <div id="sub-section-cash-advances" class="sub-tab-panel">
+                <div id="sub-section-cash-advances" class="sub-tab-panel" style="display: none;">
                     <section class="kpi-grid">
                         <div class="kpi-card glass-panel kpi-outflow">
                             <div class="kpi-title">Outstanding Pinjaman (Piutang Karyawan)</div>
@@ -1678,8 +1678,10 @@
                 if (panel) {
                     if (s === subTabName) {
                         panel.classList.add('active');
+                        panel.style.display = 'block';
                     } else {
                         panel.classList.remove('active');
+                        panel.style.display = 'none';
                     }
                 }
             });
