@@ -97,22 +97,7 @@
                         <span>Transaksi</span>
                     </div>
                 @endif
-                @if (Auth::user()->hasPermission('view_settlements'))
-                    <div onclick="switchTab('settlements'); closeSidebar();" id="nav-settlements" class="sidebar-nav-item">
-                        <svg style="width:22px;height:22px;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                        </svg>
-                        <span>Settlement</span>
-                    </div>
-                @endif
-                @if (Auth::user()->hasPermission('view_cash_advances'))
-                    <div onclick="switchTab('cash-advances'); closeSidebar();" id="nav-cash-advances" class="sidebar-nav-item">
-                        <svg style="width:22px;height:22px;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span>Cash Advance</span>
-                    </div>
-                @endif
+
                 @if (Auth::user()->role === 'owner')
                     <div onclick="switchTab('users'); closeSidebar();" id="nav-users" class="sidebar-nav-item">
                         <svg style="width:22px;height:22px;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -195,8 +180,36 @@
 
                 <!-- Section: Transactions List Tab -->
                 <div id="section-transactions" class="tab-section" style="display: none;">
-                    <!-- Date Filtering and Quick Action Bar -->
-                    <div class="action-filter-bar">
+                    <!-- Sub-tab Bar -->
+                    <div class="sub-tab-bar no-print">
+                        <button type="button" class="sub-tab-item active" id="sub-nav-transactions" onclick="switchSubTab('transactions')">
+                            <svg class="sub-tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                            </svg>
+                            Transaksi
+                        </button>
+                        @if (Auth::user()->hasPermission('view_settlements'))
+                            <button type="button" class="sub-tab-item" id="sub-nav-settlements" onclick="switchSubTab('settlements')">
+                                <svg class="sub-tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                </svg>
+                                Settlement
+                            </button>
+                        @endif
+                        @if (Auth::user()->hasPermission('view_cash_advances'))
+                            <button type="button" class="sub-tab-item" id="sub-nav-cash-advances" onclick="switchSubTab('cash-advances')">
+                                <svg class="sub-tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                Cash Advance
+                            </button>
+                        @endif
+                    </div>
+
+                    <!-- Sub-panel: Transaksi -->
+                    <div id="sub-section-transactions" class="sub-tab-panel active">
+                        <!-- Date Filtering and Quick Action Bar -->
+                        <div class="action-filter-bar">
                         <form action="{{ route('dashboard') }}" method="GET" class="filter-form">
                             <div class="form-group">
                                 <label for="start_date" class="form-label" style="font-size: 0.75rem; margin-bottom: 4px;">Tanggal Mulai</label>
@@ -489,11 +502,11 @@
                                     </tbody>
                                 </table>
                             </div>
-                    </div>
                 @endif
+                    </div> <!-- Close sub-section-transactions -->
 
-                <!-- Section: Settlements (Advance & Settlement) -->
-                <div id="section-settlements" class="tab-section" style="display: none;">
+                <!-- Sub-panel: Settlements (Advance & Settlement) -->
+                <div id="sub-section-settlements" class="sub-tab-panel">
                     <section class="kpi-grid">
                         <div class="kpi-card glass-panel kpi-outflow">
                             <div class="kpi-title">Outstanding (Hutang Karyawan)</div>
@@ -654,11 +667,10 @@
                                 </tbody>
                             </table>
                         </div>
-                    </section>
-                </div>
+                    </div> <!-- Close sub-section-settlements -->
 
-                <!-- Section: Cash Advances (Pinjaman Karyawan) -->
-                <div id="section-cash-advances" class="tab-section" style="display: none;">
+                <!-- Sub-panel: Cash Advances (Pinjaman Karyawan) -->
+                <div id="sub-section-cash-advances" class="sub-tab-panel">
                     <section class="kpi-grid">
                         <div class="kpi-card glass-panel kpi-outflow">
                             <div class="kpi-title">Outstanding Pinjaman (Piutang Karyawan)</div>
@@ -849,7 +861,8 @@
                             </table>
                         </div>
                     </section>
-                </div>
+                </div> <!-- Close sub-section-cash-advances -->
+                </div> <!-- Close section-transactions -->
 
                 <!-- Section: Users & Roles (Management) -->
                 @if (Auth::user()->role === 'owner')
@@ -1591,7 +1604,17 @@
             const existingAlert = document.getElementById('flashAlert');
             if (existingAlert) dismissAlert();
 
-            const tabs = ['dashboard', 'transactions', 'settlements', 'cash-advances', 'users', 'settings'];
+            // Redirect old tab names to sub-tabs under transactions
+            let targetSubTab = null;
+            if (tabName === 'settlements') {
+                tabName = 'transactions';
+                targetSubTab = 'settlements';
+            } else if (tabName === 'cash-advances') {
+                tabName = 'transactions';
+                targetSubTab = 'cash-advances';
+            }
+
+            const tabs = ['dashboard', 'transactions', 'users', 'settings'];
             tabs.forEach(t => {
                 const link = document.getElementById('nav-' + t);
                 const section = document.getElementById('section-' + t);
@@ -1615,16 +1638,62 @@
             const titleEl = document.getElementById('content-title');
             if (titleEl) {
                 if (tabName === 'dashboard') titleEl.innerText = 'Dashboard Keuangan';
-                else if (tabName === 'transactions') titleEl.innerText = 'Rincian Transaksi';
-                else if (tabName === 'settlements') titleEl.innerText = 'Settlement';
-                else if (tabName === 'cash-advances') titleEl.innerText = 'Cash Advance';
                 else if (tabName === 'users') titleEl.innerText = 'User & Hak Akses';
                 else if (tabName === 'settings') titleEl.innerText = 'Pengaturan (COA)';
             }
             
-            // Update URL so that Laravel's back() returns to the correct tab
+            // Switch to correct sub-tab if in transactions section
+            if (tabName === 'transactions') {
+                if (targetSubTab) {
+                    switchSubTab(targetSubTab);
+                } else {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const subTabParam = urlParams.get('subTab') || 'transactions';
+                    switchSubTab(subTabParam);
+                }
+            } else {
+                // Update URL for main tabs
+                const url = new URL(window.location);
+                url.searchParams.set('activeTab', tabName);
+                url.searchParams.delete('subTab');
+                window.history.pushState({}, '', url);
+            }
+        }
+
+        // Sub-Tab Switching Logic inside Transactions page
+        function switchSubTab(subTabName) {
+            const subTabs = ['transactions', 'settlements', 'cash-advances'];
+            subTabs.forEach(s => {
+                const button = document.getElementById('sub-nav-' + s);
+                const panel = document.getElementById('sub-section-' + s);
+                if (button) {
+                    if (s === subTabName) {
+                        button.classList.add('active');
+                    } else {
+                        button.classList.remove('active');
+                    }
+                }
+                if (panel) {
+                    if (s === subTabName) {
+                        panel.classList.add('active');
+                    } else {
+                        panel.classList.remove('active');
+                    }
+                }
+            });
+
+            // Update content title based on active sub-tab
+            const titleEl = document.getElementById('content-title');
+            if (titleEl) {
+                if (subTabName === 'transactions') titleEl.innerText = 'Rincian Transaksi';
+                else if (subTabName === 'settlements') titleEl.innerText = 'Settlement';
+                else if (subTabName === 'cash-advances') titleEl.innerText = 'Cash Advance';
+            }
+
+            // Update URL parameters
             const url = new URL(window.location);
-            url.searchParams.set('activeTab', tabName);
+            url.searchParams.set('activeTab', 'transactions');
+            url.searchParams.set('subTab', subTabName);
             window.history.pushState({}, '', url);
         }
 
