@@ -112,6 +112,47 @@ Route::get('/run-migrate', function () {
     }
 });
 
+Route::get('/check-deploy', function () {
+    $viewPath = resource_path('views/dashboard.blade.php');
+    $fileExists = file_exists($viewPath);
+    $fileSize = $fileExists ? filesize($viewPath) : 0;
+    $lastModified = $fileExists ? date('Y-m-d H:i:s', filemtime($viewPath)) : 'N/A';
+    
+    // Check if reimbursement keyword exists in the blade file
+    $hasReimburse = $fileExists ? (strpos(file_get_contents($viewPath), 'is_reimbursement') !== false) : false;
+    $hasCashAdvance = $fileExists ? (strpos(file_get_contents($viewPath), 'cash_advance') !== false) : false;
+    
+    // Check compiled views
+    $compiledDir = storage_path('framework/views');
+    $compiledCount = count(glob($compiledDir . '/*.php') ?: []);
+    
+    // Check migration columns
+    try {
+        $cols = \Illuminate\Support\Facades\DB::select("SHOW COLUMNS FROM transactions");
+        $colNames = array_map(fn($c) => $c->Field, $cols);
+        $hasReimburseCol = in_array('is_reimbursement', $colNames);
+        $hasTransferProof = in_array('transfer_proof_path', $colNames);
+    } catch (\Exception $e) {
+        $hasReimburseCol = false;
+        $hasTransferProof = false;
+    }
+    
+    return response()->json([
+        'view_file_exists' => $fileExists,
+        'view_file_size' => $fileSize,
+        'view_last_modified' => $lastModified,
+        'has_is_reimbursement_code' => $hasReimburse,
+        'has_cash_advance_code' => $hasCashAdvance,
+        'compiled_views_count' => $compiledCount,
+        'db_has_is_reimbursement_col' => $hasReimburseCol,
+        'db_has_transfer_proof_col' => $hasTransferProof,
+        'laravel_version' => app()->version(),
+        'php_version' => PHP_VERSION,
+    ]);
+});
+
+
+
 Route::get('/clear-cache', function () {
     try {
         \Illuminate\Support\Facades\Artisan::call('view:clear');
