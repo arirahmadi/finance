@@ -118,15 +118,27 @@ Route::get('/check-deploy', function () {
     $fileSize = $fileExists ? filesize($viewPath) : 0;
     $lastModified = $fileExists ? date('Y-m-d H:i:s', filemtime($viewPath)) : 'N/A';
     
-    // Check if reimbursement keyword exists in the blade file
     $hasReimburse = $fileExists ? (strpos(file_get_contents($viewPath), 'is_reimbursement') !== false) : false;
     $hasCashAdvance = $fileExists ? (strpos(file_get_contents($viewPath), 'cash_advance') !== false) : false;
+    $hasReimburseModal = $fileExists ? (strpos(file_get_contents($viewPath), 'reimburseTransferModal') !== false) : false;
     
     // Check compiled views
     $compiledDir = storage_path('framework/views');
-    $compiledCount = count(glob($compiledDir . '/*.php') ?: []);
+    $compiledFiles = glob($compiledDir . '/*.php') ?: [];
+    $compiledCount = count($compiledFiles);
     
-    // Check migration columns
+    // Check if any compiled view contains old content (no reimbursement)
+    $compiledHasReimburse = false;
+    $compiledFileSizes = [];
+    foreach ($compiledFiles as $cf) {
+        $content = file_get_contents($cf);
+        if (strpos($content, 'is_reimbursement') !== false) {
+            $compiledHasReimburse = true;
+        }
+        $compiledFileSizes[] = basename($cf) . ': ' . filesize($cf) . 'B, mod=' . date('Y-m-d H:i:s', filemtime($cf));
+    }
+    
+    // Check database columns
     try {
         $cols = \Illuminate\Support\Facades\DB::select("SHOW COLUMNS FROM transactions");
         $colNames = array_map(fn($c) => $c->Field, $cols);
@@ -137,17 +149,52 @@ Route::get('/check-deploy', function () {
         $hasTransferProof = false;
     }
     
+    // OPcache status
+    $opcacheEnabled = function_exists('opcache_get_status') ? (opcache_get_status(false)['opcache_enabled'] ?? false) : false;
+    $opcacheScripts = 0;
+    if ($opcacheEnabled && function_exists('opcache_get_status')) {
+        $status = opcache_get_status(true);
+        $opcacheScripts = count($status['scripts'] ?? []);
+    }
+    
+    // Check WebController.php for reimbursement
+    $controllerPath = app_path('Http/Controllers/Web/WebController.php');
+    $controllerHasReimburse = file_exists($controllerPath) ? (strpos(file_get_contents($controllerPath), 'is_reimbursement') !== false) : false;
+    $controllerSize = file_exists($controllerPath) ? filesize($controllerPath) : 0;
+    $controllerMod = file_exists($controllerPath) ? date('Y-m-d H:i:s', filemtime($controllerPath)) : 'N/A';
+    
     return response()->json([
-        'view_file_exists' => $fileExists,
-        'view_file_size' => $fileSize,
-        'view_last_modified' => $lastModified,
-        'has_is_reimbursement_code' => $hasReimburse,
-        'has_cash_advance_code' => $hasCashAdvance,
-        'compiled_views_count' => $compiledCount,
-        'db_has_is_reimbursement_col' => $hasReimburseCol,
-        'db_has_transfer_proof_col' => $hasTransferProof,
-        'laravel_version' => app()->version(),
-        'php_version' => PHP_VERSION,
+        'blade_view' => [
+            'exists' => $fileExists,
+            'size' => $fileSize,
+            'last_modified' => $lastModified,
+            'has_is_reimbursement' => $hasReimburse,
+            'has_cash_advance' => $hasCashAdvance,
+            'has_reimburse_modal' => $hasReimburseModal,
+        ],
+        'compiled_views' => [
+            'count' => $compiledCount,
+            'has_reimbursement' => $compiledHasReimburse,
+            'files' => $compiledFileSizes,
+        ],
+        'controller' => [
+            'has_reimbursement' => $controllerHasReimburse,
+            'size' => $controllerSize,
+            'last_modified' => $controllerMod,
+        ],
+        'database' => [
+            'has_is_reimbursement_col' => $hasReimburseCol,
+            'has_transfer_proof_col' => $hasTransferProof,
+        ],
+        'opcache' => [
+            'enabled' => $opcacheEnabled,
+            'cached_scripts' => $opcacheScripts,
+        ],
+        'server' => [
+            'laravel_version' => app()->version(),
+            'php_version' => PHP_VERSION,
+            'server_time' => date('Y-m-d H:i:s'),
+        ],
     ]);
 });
 
