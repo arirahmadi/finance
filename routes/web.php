@@ -111,3 +111,24 @@ Route::get('/run-migrate', function () {
         return "Migration failed: " . $e->getMessage() . "<br>Trace: " . $e->getTraceAsString();
     }
 });
+
+Route::get('/clear-cache', function () {
+    try {
+        \Illuminate\Support\Facades\Artisan::call('view:clear');
+        echo "View cache cleared.<br>";
+        \Illuminate\Support\Facades\Artisan::call('config:clear');
+        echo "Config cache cleared.<br>";
+        \Illuminate\Support\Facades\Artisan::call('route:clear');
+        echo "Route cache cleared.<br>";
+        \Illuminate\Support\Facades\Artisan::call('cache:clear');
+        echo "Application cache cleared.<br>";
+        if (function_exists('opcache_reset')) {
+            opcache_reset();
+            echo "OPcache cleared.<br>";
+        }
+        return "All caches cleared successfully!";
+    } catch (\Exception $e) {
+        return "Cache clear failed: " . $e->getMessage();
+    }
+});
+
