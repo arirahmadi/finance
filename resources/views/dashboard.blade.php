@@ -502,7 +502,8 @@
                                     </tbody>
                                 </table>
                             </div>
-                @endif
+                        @endif
+                    </section>
                     </div> <!-- Close sub-section-transactions -->
 
                 <!-- Sub-panel: Settlements (Advance & Settlement) -->
@@ -667,6 +668,7 @@
                                 </tbody>
                             </table>
                         </div>
+                    </section>
                     </div> <!-- Close sub-section-settlements -->
 
                 <!-- Sub-panel: Cash Advances (Pinjaman Karyawan) -->
