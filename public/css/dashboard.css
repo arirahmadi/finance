@@ -747,6 +747,9 @@ h1, h2, h3, h4 {
     form,
     button,
     .btn,
+    .sidebar-drawer,
+    .sidebar-backdrop,
+    .no-print,
     th:nth-child(8), /* Hide receipt column th */
     td:nth-child(8)  /* Hide receipt column td */ {
         display: none !important;
@@ -1366,5 +1369,26 @@ h1, h2, h3, h4 {
     .sub-tab-icon {
         width: 14px !important;
         height: 14px !important;
+    }
+}
+
+/* ── General Ledger (Buku Besar) Styles ── */
+.ledger-print-header {
+    border-bottom: 1px solid var(--border-glass);
+    padding-bottom: 16px;
+    margin-bottom: 24px;
+}
+
+@media print {
+    .ledger-print-header {
+        border-bottom: 2px solid #000000 !important;
+        color: #000000 !important;
+    }
+    .ledger-print-header * {
+        color: #000000 !important;
+    }
+    .table td, .table th {
+        color: #000000 !important;
+        border-color: #e5e7eb !important;
     }
 }

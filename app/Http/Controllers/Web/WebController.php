@@ -309,6 +309,95 @@ class WebController extends Controller
             'total_repaid' => $totalRepaidLoans,
         ];
 
+        // ── LOAD GENERAL LEDGER (BUKU BESAR) DATA ──
+        $ledgerAccountId = $request->input('ledger_account_id');
+        $ledgerStartDate = $request->input('ledger_start_date', $startDate ?? Carbon::now()->startOfMonth()->format('Y-m-d'));
+        $ledgerEndDate = $request->input('ledger_end_date', $endDate ?? Carbon::now()->endOfMonth()->format('Y-m-d'));
+        
+        $ledgerAccount = null;
+        $ledgerStartingBalance = 0;
+        $ledgerEntries = collect([]);
+        $ledgerEndingBalance = 0;
+        
+        if ($ledgerAccountId) {
+            $ledgerAccount = Account::find($ledgerAccountId);
+            if ($ledgerAccount) {
+                $startCarbon = Carbon::parse($ledgerStartDate)->startOfDay();
+                
+                // Prior balance calculation (Saldo Awal)
+                $priorEntries = JournalEntry::where('account_id', $ledgerAccountId)
+                    ->whereHas('transaction', function($q) use ($startCarbon) {
+                        $q->where('transaction_date', '<', $startCarbon);
+                    })->get();
+                    
+                foreach ($priorEntries as $entry) {
+                    $amount = floatval($entry->amount);
+                    if ($ledgerAccount->type === 'asset' || $ledgerAccount->type === 'expense') {
+                        if ($entry->type === 'debit') {
+                            $ledgerStartingBalance += $amount;
+                        } else {
+                            $ledgerStartingBalance -= $amount;
+                        }
+                    } else {
+                        if ($entry->type === 'credit') {
+                            $ledgerStartingBalance += $amount;
+                        } else {
+                            $ledgerStartingBalance -= $amount;
+                        }
+                    }
+                }
+                
+                // Mutation entries calculation
+                $endCarbon = Carbon::parse($ledgerEndDate)->endOfDay();
+                $rawEntries = JournalEntry::with(['transaction.creator'])
+                    ->where('account_id', $ledgerAccountId)
+                    ->whereHas('transaction', function($q) use ($startCarbon, $endCarbon) {
+                        $q->whereBetween('transaction_date', [$startCarbon, $endCarbon]);
+                    })->get();
+                
+                $sortedEntries = $rawEntries->sortBy(function($entry) {
+                    return $entry->transaction->transaction_date->format('Y-m-d') . '_' . str_pad($entry->transaction_id, 10, '0', STR_PAD_LEFT);
+                });
+                
+                $runningBalance = $ledgerStartingBalance;
+                $ledgerEntries = $sortedEntries->map(function ($entry) use (&$runningBalance, $ledgerAccount) {
+                    $amount = floatval($entry->amount);
+                    $debit = 0;
+                    $credit = 0;
+                    
+                    if ($entry->type === 'debit') {
+                        $debit = $amount;
+                        if ($ledgerAccount->type === 'asset' || $ledgerAccount->type === 'expense') {
+                            $runningBalance += $amount;
+                        } else {
+                            $runningBalance -= $amount;
+                        }
+                    } else {
+                        $credit = $amount;
+                        if ($ledgerAccount->type === 'asset' || $ledgerAccount->type === 'expense') {
+                            $runningBalance -= $amount;
+                        } else {
+                            $runningBalance += $amount;
+                        }
+                    }
+                    
+                    return (object) [
+                        'id' => $entry->id,
+                        'transaction_id' => $entry->transaction_id,
+                        'transaction_number' => $entry->transaction->transaction_number,
+                        'transaction_date' => $entry->transaction->transaction_date,
+                        'description' => $entry->transaction->description,
+                        'creator' => $entry->transaction->creator->name ?? 'System',
+                        'debit' => $debit,
+                        'credit' => $credit,
+                        'running_balance' => $runningBalance
+                    ];
+                });
+                
+                $ledgerEndingBalance = $runningBalance;
+            }
+        }
+
         return view('dashboard', [
             'transactions' => $formattedTransactions,
             'summary' => (object) [
@@ -327,7 +416,15 @@ class WebController extends Controller
             'settlementSummary' => $settlementSummary,
             'loans' => $formattedLoans,
             'loanSummary' => $loanSummary,
-            'activeTab' => $request->input('activeTab', 'dashboard')
+            'activeTab' => $request->input('activeTab', 'dashboard'),
+            // Ledger variables
+            'ledgerAccount' => $ledgerAccount,
+            'ledgerStartingBalance' => $ledgerStartingBalance,
+            'ledgerEntries' => $ledgerEntries,
+            'ledgerEndingBalance' => $ledgerEndingBalance,
+            'ledger_start_date' => $ledgerStartDate,
+            'ledger_end_date' => $ledgerEndDate,
+            'ledger_account_id' => $ledgerAccountId,
         ]);
     }
 

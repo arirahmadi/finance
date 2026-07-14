@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard Keuangan - Finance System</title>
-    <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}?v=1.0.4">
+    <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}?v=1.0.5">
     <script>
         // Init theme from localStorage (default: dark/true black)
         const savedTheme = localStorage.getItem('theme') || 'dark';
@@ -95,6 +95,15 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
                         </svg>
                         <span>Transaksi</span>
+                    </div>
+                @endif
+
+                @if (Auth::user()->hasPermission('view_transactions'))
+                    <div onclick="switchTab('ledger'); closeSidebar();" id="nav-ledger" class="sidebar-nav-item">
+                        <svg style="width:22px;height:22px;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                        </svg>
+                        <span>Buku Besar</span>
                     </div>
                 @endif
 
@@ -869,6 +878,178 @@
                 </div> <!-- Close sub-section-cash-advances -->
                 </div> <!-- Close section-transactions -->
 
+                <!-- Section: Buku Besar (General Ledger) -->
+                <div id="section-ledger" class="tab-section" style="display: none;">
+                    <div class="action-filter-bar no-print">
+                        <form action="{{ route('dashboard') }}" method="GET" class="filter-form" style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; width: 100%;">
+                            <input type="hidden" name="activeTab" value="ledger">
+                            
+                            <div class="form-group" style="min-width: 250px;">
+                                <label for="ledger_account_id" class="form-label" style="font-size: 0.75rem; margin-bottom: 4px;">Pilih Akun (COA)</label>
+                                <select name="ledger_account_id" id="ledger_account_id" class="form-input" style="padding: 8px 12px; font-size: 0.85rem;" required>
+                                    <option value="">-- Pilih Akun --</option>
+                                    @foreach ($allAccounts->sortBy('code') as $acc)
+                                        <option value="{{ $acc->id }}" {{ $ledger_account_id == $acc->id ? 'selected' : '' }}>
+                                            {{ $acc->code }} - {{ $acc->name }} ({{ ucfirst($acc->type) }})
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="ledger_start_date" class="form-label" style="font-size: 0.75rem; margin-bottom: 4px;">Tanggal Mulai</label>
+                                <input 
+                                    type="date" 
+                                    name="ledger_start_date" 
+                                    id="ledger_start_date" 
+                                    class="form-input" 
+                                    value="{{ $ledger_start_date }}"
+                                    style="padding: 8px 12px; font-size: 0.85rem;"
+                                >
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="ledger_end_date" class="form-label" style="font-size: 0.75rem; margin-bottom: 4px;">Tanggal Akhir</label>
+                                <input 
+                                    type="date" 
+                                    name="ledger_end_date" 
+                                    id="ledger_end_date" 
+                                    class="form-input" 
+                                    value="{{ $ledger_end_date }}"
+                                    style="padding: 8px 12px; font-size: 0.85rem;"
+                                >
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary btn-sm" style="height: 38px;">
+                                Filter Laporan
+                            </button>
+                            
+                            @if ($ledger_account_id)
+                                <a href="{{ route('dashboard', ['activeTab' => 'ledger']) }}" class="btn btn-secondary btn-sm" style="height: 38px;">
+                                    Reset
+                                </a>
+                                <button type="button" onclick="window.print()" class="btn btn-secondary btn-sm" style="height: 38px; display: inline-flex; align-items: center; gap: 6px;">
+                                    <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                                    </svg>
+                                    Cetak Buku Besar (PDF)
+                                </button>
+                            @endif
+                        </form>
+                    </div>
+
+                    @if (!$ledgerAccount)
+                        <!-- Empty State: No Account Selected -->
+                        <div class="glass-panel" style="padding: 48px; text-align: center; margin-top: 16px;">
+                            <svg style="width: 48px; height: 48px; color: var(--text-muted); margin: 0 auto 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                            </svg>
+                            <h3 style="font-size: 1.15rem; font-weight: 600; margin-bottom: 8px;">Pilih Akun Terlebih Dahulu</h3>
+                            <p style="color: var(--text-secondary); font-size: 0.9rem; max-width: 500px; margin: 0 auto;">
+                                Silakan pilih salah satu Kode Akun (COA) dan tentukan rentang tanggal di atas untuk memuat laporan mutasi Buku Besar secara detail.
+                            </p>
+                        </div>
+                    @else
+                        <!-- Ledger Report Container -->
+                        <div class="glass-panel table-card" style="margin-top: 16px; padding: 24px;">
+                            <!-- Header Laporan (Hanya Muncul saat Cetak / Detail) -->
+                            <div class="ledger-print-header" style="margin-bottom: 24px; border-bottom: 2px solid var(--border-glass); padding-bottom: 16px;">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                    <div>
+                                        <h2 style="font-size: 1.4rem; font-weight: 700; color: var(--text-primary);">LAPORAN BUKU BESAR</h2>
+                                        <div style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 4px;">
+                                            Akun: <strong style="color: var(--text-primary);">{{ $ledgerAccount->code }} - {{ $ledgerAccount->name }}</strong>
+                                        </div>
+                                        <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 2px;">
+                                            Tipe Akun: {{ ucfirst($ledgerAccount->type) }}
+                                        </div>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        <div style="font-size: 0.9rem; font-weight: 600; color: var(--text-primary);">Finance System</div>
+                                        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 4px;">
+                                            Periode: {{ Carbon::parse($ledger_start_date)->format('d/m/Y') }} - {{ Carbon::parse($ledger_end_date)->format('d/m/Y') }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="table-wrapper">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Tanggal</th>
+                                            <th>No. Bukti</th>
+                                            <th>Keterangan</th>
+                                            <th>Petugas</th>
+                                            <th style="text-align: right;">Debit</th>
+                                            <th style="text-align: right;">Kredit</th>
+                                            <th style="text-align: right;">Saldo Akhir</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Row 1: Saldo Awal -->
+                                        <tr style="background: rgba(255, 255, 255, 0.02); font-weight: 600;">
+                                            <td>{{ Carbon::parse($ledger_start_date)->format('d/m/Y') }}</td>
+                                            <td style="color: var(--text-muted); font-style: italic;">-</td>
+                                            <td><strong>SALDO AWAL (Opening Balance)</strong></td>
+                                            <td style="color: var(--text-muted); font-style: italic;">-</td>
+                                            <td style="text-align: right; color: var(--text-muted);">-</td>
+                                            <td style="text-align: right; color: var(--text-muted);">-</td>
+                                            <td style="text-align: right; color: var(--color-primary);">
+                                                Rp {{ number_format($ledgerStartingBalance, 0, ',', '.') }}
+                                            </td>
+                                        </tr>
+
+                                        <!-- Mutations -->
+                                        @if ($ledgerEntries->isEmpty())
+                                            <tr>
+                                                <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 24px 0; font-style: italic;">
+                                                    Tidak ada mutasi transaksi untuk akun ini dalam periode terpilih.
+                                                </td>
+                                            </tr>
+                                        @else
+                                            @foreach ($ledgerEntries as $entry)
+                                                <tr>
+                                                    <td>{{ $entry->transaction_date->format('d/m/Y') }}</td>
+                                                    <td class="tx-number">{{ $entry->transaction_number }}</td>
+                                                    <td>{{ $entry->description }}</td>
+                                                    <td>{{ $entry->creator }}</td>
+                                                    <td style="text-align: right; font-weight: 500; color: {{ $entry->debit > 0 ? 'var(--color-success)' : 'inherit' }}">
+                                                        {{ $entry->debit > 0 ? 'Rp ' . number_format($entry->debit, 0, ',', '.') : '-' }}
+                                                    </td>
+                                                    <td style="text-align: right; font-weight: 500; color: {{ $entry->credit > 0 ? 'var(--color-danger)' : 'inherit' }}">
+                                                        {{ $entry->credit > 0 ? 'Rp ' . number_format($entry->credit, 0, ',', '.') : '-' }}
+                                                    </td>
+                                                    <td style="text-align: right; font-weight: 600;">
+                                                        Rp {{ number_format($entry->running_balance, 0, ',', '.') }}
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        @endif
+
+                                        <!-- Row Akhir: Saldo Akhir -->
+                                        <tr style="background: rgba(255, 255, 255, 0.04); font-weight: 700; border-top: 2px solid var(--border-glass);">
+                                            <td>{{ Carbon::parse($ledger_end_date)->format('d/m/Y') }}</td>
+                                            <td style="color: var(--text-muted); font-style: italic;">-</td>
+                                            <td><strong>SALDO AKHIR (Closing Balance)</strong></td>
+                                            <td style="color: var(--text-muted); font-style: italic;">-</td>
+                                            <td style="text-align: right; color: var(--color-success);">
+                                                {{ $ledgerEntries->sum('debit') > 0 ? 'Rp ' . number_format($ledgerEntries->sum('debit'), 0, ',', '.') : '-' }}
+                                            </td>
+                                            <td style="text-align: right; color: var(--color-danger);">
+                                                {{ $ledgerEntries->sum('credit') > 0 ? 'Rp ' . number_format($ledgerEntries->sum('credit'), 0, ',', '.') : '-' }}
+                                            </td>
+                                            <td style="text-align: right; color: var(--color-primary); font-size: 1.05rem;">
+                                                Rp {{ number_format($ledgerEndingBalance, 0, ',', '.') }}
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    @endif
+                </div>
+
                 <!-- Section: Users & Roles (Management) -->
                 @if (Auth::user()->role === 'owner')
                     <div id="section-users" class="tab-section" style="display: none;">
@@ -1619,7 +1800,7 @@
                 targetSubTab = 'cash-advances';
             }
 
-            const tabs = ['dashboard', 'transactions', 'users', 'settings'];
+            const tabs = ['dashboard', 'transactions', 'ledger', 'users', 'settings'];
             tabs.forEach(t => {
                 const link = document.getElementById('nav-' + t);
                 const section = document.getElementById('section-' + t);
@@ -1643,6 +1824,7 @@
             const titleEl = document.getElementById('content-title');
             if (titleEl) {
                 if (tabName === 'dashboard') titleEl.innerText = 'Dashboard Keuangan';
+                else if (tabName === 'ledger') titleEl.innerText = 'Buku Besar / General Ledger';
                 else if (tabName === 'users') titleEl.innerText = 'User & Hak Akses';
                 else if (tabName === 'settings') titleEl.innerText = 'Pengaturan (COA)';
             }
@@ -1722,6 +1904,8 @@
                 switchTab(activeTabFromBackend);
             } else if (activeTabFromUrl) {
                 switchTab(activeTabFromUrl);
+            } else if (urlParams.has('ledger_account_id')) {
+                switchTab('ledger');
             } else if (urlParams.has('start_date') || urlParams.has('end_date') || urlParams.has('page')) {
                 switchTab('transactions');
             } else {
