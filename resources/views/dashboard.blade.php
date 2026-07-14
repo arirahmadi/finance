@@ -967,7 +967,7 @@
                                     <div style="text-align: right;">
                                         <div style="font-size: 0.9rem; font-weight: 600; color: var(--text-primary);">Finance System</div>
                                         <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 4px;">
-                                            Periode: {{ Carbon::parse($ledger_start_date)->format('d/m/Y') }} - {{ Carbon::parse($ledger_end_date)->format('d/m/Y') }}
+                                            Periode: {{ \Carbon\Carbon::parse($ledger_start_date)->format('d/m/Y') }} - {{ \Carbon\Carbon::parse($ledger_end_date)->format('d/m/Y') }}
                                         </div>
                                     </div>
                                 </div>
@@ -989,7 +989,7 @@
                                     <tbody>
                                         <!-- Row 1: Saldo Awal -->
                                         <tr style="background: rgba(255, 255, 255, 0.02); font-weight: 600;">
-                                            <td>{{ Carbon::parse($ledger_start_date)->format('d/m/Y') }}</td>
+                                            <td>{{ \Carbon\Carbon::parse($ledger_start_date)->format('d/m/Y') }}</td>
                                             <td style="color: var(--text-muted); font-style: italic;">-</td>
                                             <td><strong>SALDO AWAL (Opening Balance)</strong></td>
                                             <td style="color: var(--text-muted); font-style: italic;">-</td>
@@ -1029,7 +1029,7 @@
 
                                         <!-- Row Akhir: Saldo Akhir -->
                                         <tr style="background: rgba(255, 255, 255, 0.04); font-weight: 700; border-top: 2px solid var(--border-glass);">
-                                            <td>{{ Carbon::parse($ledger_end_date)->format('d/m/Y') }}</td>
+                                            <td>{{ \Carbon\Carbon::parse($ledger_end_date)->format('d/m/Y') }}</td>
                                             <td style="color: var(--text-muted); font-style: italic;">-</td>
                                             <td><strong>SALDO AKHIR (Closing Balance)</strong></td>
                                             <td style="color: var(--text-muted); font-style: italic;">-</td>
