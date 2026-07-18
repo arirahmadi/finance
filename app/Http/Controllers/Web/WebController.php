@@ -142,6 +142,7 @@ class WebController extends Controller
                 'transfer_proof_url' => $tx->transfer_proof_path ? route('web.attachments.show', ['path' => $tx->transfer_proof_path]) : null,
                 'attachments' => $tx->attachments,
                 'creator' => $tx->creator->name ?? null,
+                'is_transferred' => $tx->is_transferred,
             ];
         });
 
@@ -210,6 +211,7 @@ class WebController extends Controller
                 'attachment' => $settlementAttachment,
                 'creator' => $tx->creator->name ?? null,
                 'recipient_name' => $tx->recipient_name,
+                'is_transferred' => $tx->is_transferred,
                 'expense_account_id' => $expenseAccountId,
             ];
         });
@@ -301,6 +303,7 @@ class WebController extends Controller
                 'recipient_name' => $tx->recipient_name,
                 'creator' => $tx->creator->name ?? null,
                 'repayments' => $repayments,
+                'is_transferred' => $tx->is_transferred,
             ];
         });
 
