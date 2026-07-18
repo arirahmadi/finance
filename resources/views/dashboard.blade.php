@@ -530,9 +530,9 @@
                                     </tbody>
                                 </table>
                             </div>
-                        @endif
-                    </section>
-                    </div> <!-- Close sub-section-transactions -->
+                        </section>
+                    </div> <!-- Close section-settings -->
+                @endif
 
                 <!-- Sub-panel: Settlements (Advance & Settlement) -->
                 <div id="sub-section-settlements" class="sub-tab-panel" style="display: none;">
