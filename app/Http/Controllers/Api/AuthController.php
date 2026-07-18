@@ -88,4 +88,45 @@ class AuthController extends Controller
             'user' => $request->user(),
         ]);
     }
+
+    /**
+     * Get list of all users (owner-only).
+     */
+    public function users(Request $request): JsonResponse
+    {
+        if (strtolower($request->user()->role) !== 'owner') {
+            return response()->json(['message' => 'Unauthorized. Owner only.'], 403);
+        }
+
+        $users = User::orderBy('id', 'desc')->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $users,
+        ]);
+    }
+
+    /**
+     * Update user role or information (owner-only).
+     */
+    public function updateUserRole(Request $request, $id): JsonResponse
+    {
+        if (strtolower($request->user()->role) !== 'owner') {
+            return response()->json(['message' => 'Unauthorized. Owner only.'], 403);
+        }
+
+        $request->validate([
+            'role' => ['required', 'string', 'in:owner,staff'],
+        ]);
+
+        $user = User::findOrFail($id);
+        $user->role = $request->role;
+        $user->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Role user berhasil diperbarui.',
+            'user' => $user,
+        ]);
+    }
 }

@@ -341,6 +341,13 @@
                                                 <td>
                                                     @if ($tx->type === 'in')
                                                         <span class="badge badge-in">Masuk</span>
+                                                        <div style="margin-top: 4px;">
+                                                            @if ($tx->is_transferred)
+                                                                <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 0.65rem; padding: 1px 4px; display: inline-block;">Diterima</span>
+                                                            @else
+                                                                <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 0.65rem; padding: 1px 4px; display: inline-block;">Pending</span>
+                                                            @endif
+                                                        </div>
                                                     @else
                                                         <span class="badge badge-out">Keluar</span>
                                                         @if ($tx->is_reimbursement)
@@ -349,6 +356,14 @@
                                                                     <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 0.7rem; padding: 2px 6px; display: inline-block;">Reimburse (Pending)</span>
                                                                 @else
                                                                     <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 0.7rem; padding: 2px 6px; display: inline-block;">Reimburse (Ditransfer)</span>
+                                                                @endif
+                                                            </div>
+                                                        @else
+                                                            <div style="margin-top: 4px;">
+                                                                @if ($tx->is_transferred)
+                                                                    <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 0.65rem; padding: 1px 4px; display: inline-block;">Ditransfer</span>
+                                                                @else
+                                                                    <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 0.65rem; padding: 1px 4px; display: inline-block;">Pending Transfer</span>
                                                                 @endif
                                                             </div>
                                                         @endif
@@ -440,7 +455,8 @@
                                                                 'reimbursementStatus' => $tx->reimbursement_status,
                                                                 'hasTransferProof' => !empty($tx->transfer_proof_path),
                                                                 'transferProofUrl' => $tx->transfer_proof_path ? route('web.attachments.show', ['path' => $tx->transfer_proof_path]) : '',
-                                                                'transferProofName' => $tx->transfer_proof_path ? basename($tx->transfer_proof_path) : ''
+                                                                'transferProofName' => $tx->transfer_proof_path ? basename($tx->transfer_proof_path) : '',
+                                                                'isTransferred' => $tx->is_transferred
                                                             ]) }}"
                                                             onclick="initiateEdit(this)"
                                                         >
@@ -604,6 +620,13 @@
                                                     @else
                                                         <span class="badge badge-in">Selesai (Settled)</span>
                                                     @endif
+                                                    <div style="margin-top: 4px;">
+                                                        @if ($adv->is_transferred)
+                                                            <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 0.65rem; padding: 1px 4px; display: inline-block;">Sudah Ditransfer</span>
+                                                        @else
+                                                            <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 0.65rem; padding: 1px 4px; display: inline-block;">Belum Ditransfer</span>
+                                                        @endif
+                                                    </div>
                                                 </td>
                                                 <td>
                                                     @if ($adv->advance_status === 'settled' && $adv->attachment)
@@ -758,6 +781,13 @@
                                                     @else
                                                         <span class="badge badge-warning">Belum Lunas</span>
                                                     @endif
+                                                    <div style="margin-top: 4px;">
+                                                        @if ($loan->is_transferred)
+                                                            <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 0.65rem; padding: 1px 4px; display: inline-block;">Sudah Ditransfer</span>
+                                                        @else
+                                                            <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 0.65rem; padding: 1px 4px; display: inline-block;">Belum Ditransfer</span>
+                                                        @endif
+                                                    </div>
                                                 </td>
                                                 <td>
                                                     <div class="action-buttons-group">
@@ -1241,6 +1271,14 @@
                         </div>
                     </div>
 
+                    <!-- Non-Reimbursement Transfer Status Checkbox -->
+                    <div class="form-group" id="nonReimbursementTransferSection" style="margin-top: 14px; margin-bottom: 14px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500;">
+                            <input type="checkbox" name="is_transferred" id="tx_is_transferred" value="1" checked> 
+                            <span>Transaksi Sudah Ditransfer / Diterima (Clear)</span>
+                        </label>
+                    </div>
+
                     <!-- Payment Asset Account Selector (Kas/Bank) -->
                     <div class="form-group" id="groupPaymentAccount">
                         <label for="payment_account_id" class="form-label">Sumber Kas / Bank</label>
@@ -1429,6 +1467,12 @@
                         <label class="form-label">Tujuan Keperluan (Deskripsi)</label>
                         <textarea name="description" class="form-input" required rows="3" placeholder="Contoh: Pembelian server RAM baru PT Central" style="resize: none;"></textarea>
                     </div>
+                    <div class="form-group" style="margin-top: 14px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500;">
+                            <input type="checkbox" name="is_transferred" value="1" checked> 
+                            <span>Dana Advance Sudah Ditransfer / Diberikan</span>
+                        </label>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" onclick="closeAdvanceModal()" class="btn btn-secondary">Batal</button>
@@ -1592,6 +1636,12 @@
                     <div class="form-group" style="margin-top: 14px;">
                         <label class="form-label">Keterangan / Alasan Pinjaman</label>
                         <textarea name="description" class="form-input" required rows="3" placeholder="Contoh: Pinjaman darurat biaya rumah sakit" style="resize: none;"></textarea>
+                    </div>
+                    <div class="form-group" style="margin-top: 14px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500;">
+                            <input type="checkbox" name="is_transferred" value="1" checked> 
+                            <span>Dana Pinjaman Sudah Ditransfer / Diberikan</span>
+                        </label>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -2056,6 +2106,11 @@
             if (checkboxReimbursementStatus) checkboxReimbursementStatus.checked = (tx.reimbursementStatus === 'transferred');
             if (fileTransferProof) fileTransferProof.value = '';
             
+            const checkboxIsTransferred = document.getElementById('tx_is_transferred');
+            if (checkboxIsTransferred) {
+                checkboxIsTransferred.checked = (tx.isTransferred === true || tx.isTransferred === 1 || tx.isTransferred === "1");
+            }
+
             if (tx.hasTransferProof) {
                 if (transferProofMsg) transferProofMsg.innerHTML = `Bukti transfer saat ini: <strong>${tx.transferProofName}</strong><br><span style="font-size: 0.8rem; color: var(--text-muted);">Pilih file baru jika ingin mengganti</span>`;
             } else {
@@ -2133,11 +2188,14 @@
         function toggleReimbursementFields() {
             const isReimbursementCheckbox = document.getElementById('tx_is_reimbursement');
             const detailsSection = document.getElementById('reimbursementDetailsSection');
+            const nonReimburseTransfer = document.getElementById('nonReimbursementTransferSection');
             
             if (isReimbursementCheckbox && isReimbursementCheckbox.checked) {
                 if (detailsSection) detailsSection.style.display = 'block';
+                if (nonReimburseTransfer) nonReimburseTransfer.style.display = 'none';
             } else {
                 if (detailsSection) detailsSection.style.display = 'none';
+                if (nonReimburseTransfer) nonReimburseTransfer.style.display = 'block';
                 const statusCheckbox = document.getElementById('tx_reimbursement_status');
                 if (statusCheckbox) statusCheckbox.checked = false;
             }

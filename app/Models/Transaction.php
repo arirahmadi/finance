@@ -27,6 +27,7 @@ class Transaction extends Model
         'is_reimbursement',
         'reimbursement_status',
         'transfer_proof_path',
+        'is_transferred',
         'created_by'
     ];
 
@@ -36,6 +37,7 @@ class Transaction extends Model
         'settled_at' => 'datetime',
         'is_loan' => 'boolean',
         'is_reimbursement' => 'boolean',
+        'is_transferred' => 'boolean',
     ];
 
     public function journalEntries(): HasMany
