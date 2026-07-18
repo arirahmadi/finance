@@ -146,6 +146,31 @@ class WebController extends Controller
             ];
         });
 
+        // ── CATEGORY WISE SUMMARY FOR TRANSACTIONS TAB ──
+        $categorySummaryData = [];
+        foreach ($formattedTransactions as $tx) {
+            $catName = $tx->category ?? 'Lainnya';
+            if (!isset($categorySummaryData[$catName])) {
+                $categorySummaryData[$catName] = (object) [
+                    'category' => $catName,
+                    'uang_masuk' => 0.0,
+                    'uang_keluar_transfer' => 0.0,
+                    'uang_keluar_prakiraan' => 0.0,
+                ];
+            }
+            if ($tx->type === 'in') {
+                $categorySummaryData[$catName]->uang_masuk += $tx->amount;
+            } elseif ($tx->type === 'out') {
+                if ($tx->is_transferred) {
+                    $categorySummaryData[$catName]->uang_keluar_transfer += $tx->amount;
+                } else {
+                    $categorySummaryData[$catName]->uang_keluar_prakiraan += $tx->amount;
+                }
+            }
+        }
+        $categorySummary = collect($categorySummaryData)->sortBy('category')->values();
+
+
         // Load Chart of Accounts for Dropdowns
         $allAccounts = Account::orderBy('code')->get();
         $paymentAccounts = $allAccounts->filter(fn($acc) => Str::startsWith($acc->code, '11'));
@@ -484,6 +509,7 @@ class WebController extends Controller
             'ledger_end_date' => $ledgerEndDate,
             'ledger_account_id' => $ledgerAccountId,
             'dashboardWidgets' => $dashboardWidgets,
+            'categorySummary' => $categorySummary,
         ]);
     }
 
