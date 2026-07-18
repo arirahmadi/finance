@@ -14,10 +14,21 @@ Route::get('/run-migration-temp', function() {
 
 Route::get('/force-add-column', function() {
     try {
-        \Illuminate\Support\Facades\DB::statement("ALTER TABLE transactions ADD COLUMN is_transferred TINYINT(1) NOT NULL DEFAULT 0 AFTER transfer_proof_path");
-        return "Success: Column is_transferred has been added to transactions table!";
+        try {
+            \Illuminate\Support\Facades\DB::statement("ALTER TABLE transactions ADD COLUMN is_transferred TINYINT(1) NOT NULL DEFAULT 0 AFTER transfer_proof_path");
+        } catch (\Exception $e) {}
+
+        try {
+            \Illuminate\Support\Facades\DB::statement("ALTER TABLE transactions ADD COLUMN amount DECIMAL(15, 2) NULL AFTER is_transferred");
+        } catch (\Exception $e) {}
+
+        try {
+            \Illuminate\Support\Facades\DB::statement("ALTER TABLE transactions ADD COLUMN transferred_amount DECIMAL(15, 2) NULL AFTER amount");
+        } catch (\Exception $e) {}
+
+        return "Success: Database columns (is_transferred, amount, transferred_amount) updated successfully!";
     } catch (\Exception $e) {
-        return "Error/Already Exists: " . $e->getMessage();
+        return "Error: " . $e->getMessage();
     }
 });
 

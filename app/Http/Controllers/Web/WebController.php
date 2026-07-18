@@ -231,11 +231,13 @@ class WebController extends Controller
         $totalRepaidLoans = 0;
 
         $formattedLoans = $loans->map(function ($tx) use (&$totalOutstandingLoans, &$totalRepaidLoans) {
-            // Find loan amount from 1203 entry (debit)
-            $amount = 0;
-            foreach ($tx->journalEntries as $entry) {
-                if (Str::startsWith($entry->account->code, '1203') && $entry->type === 'debit') {
-                    $amount = floatval($entry->amount);
+            // Find loan amount from header first, fallback to 1203 entry (debit)
+            $amount = floatval($tx->amount ?? 0);
+            if ($amount === 0) {
+                foreach ($tx->journalEntries as $entry) {
+                    if (Str::startsWith($entry->account->code, '1203') && $entry->type === 'debit') {
+                        $amount = floatval($entry->amount);
+                    }
                 }
             }
 
@@ -252,8 +254,10 @@ class WebController extends Controller
                 }
             }
 
+            // If loan is transferred, remaining is calculated based on transferred_amount (or amount if not set)
+            $baseAmount = $tx->is_transferred ? floatval($tx->transferred_amount ?: $amount) : $amount;
             $repaidAmount = floatval($tx->loan_repaid_amount);
-            $remainingAmount = $amount - $repaidAmount;
+            $remainingAmount = $baseAmount - $repaidAmount;
 
             if ($tx->loan_status === 'repaid') {
                 $totalRepaidLoans += $amount;
@@ -304,6 +308,7 @@ class WebController extends Controller
                 'creator' => $tx->creator->name ?? null,
                 'repayments' => $repayments,
                 'is_transferred' => $tx->is_transferred,
+                'transferred_amount' => floatval($tx->transferred_amount),
             ];
         });
 
@@ -1322,6 +1327,9 @@ class WebController extends Controller
             $seq = str_pad($countToday + 1, 4, '0', STR_PAD_LEFT);
             $txNum = "CA-{$datePrefix}-{$seq}";
 
+            $isTransferred = $request->has('is_transferred');
+            $transferredAmount = $isTransferred ? ($request->transferred_amount ? floatval(str_replace('.', '', $request->transferred_amount)) : $amount) : null;
+
             $tx = Transaction::create([
                 'transaction_number' => $txNum,
                 'transaction_date' => $request->transaction_date,
@@ -1332,24 +1340,28 @@ class WebController extends Controller
                 'loan_status' => 'open',
                 'loan_repaid_amount' => 0,
                 'created_by' => Auth::id(),
-                'is_transferred' => $request->has('is_transferred'),
+                'is_transferred' => $isTransferred,
+                'amount' => $amount,
+                'transferred_amount' => $transferredAmount,
             ]);
 
-            // Debit 1203
-            JournalEntry::create([
-                'transaction_id' => $tx->id,
-                'account_id' => $loanAccount->id,
-                'type' => 'debit',
-                'amount' => $amount,
-            ]);
+            if ($isTransferred) {
+                // Debit 1203
+                JournalEntry::create([
+                    'transaction_id' => $tx->id,
+                    'account_id' => $loanAccount->id,
+                    'type' => 'debit',
+                    'amount' => $transferredAmount,
+                ]);
 
-            // Credit Cash/Bank source
-            JournalEntry::create([
-                'transaction_id' => $tx->id,
-                'account_id' => $request->payment_account_id,
-                'type' => 'credit',
-                'amount' => $amount,
-            ]);
+                // Credit Cash/Bank source
+                JournalEntry::create([
+                    'transaction_id' => $tx->id,
+                    'account_id' => $request->payment_account_id,
+                    'type' => 'credit',
+                    'amount' => $transferredAmount,
+                ]);
+            }
         });
 
         return redirect()->route('dashboard', ['activeTab' => 'cash-advances'])->with('success', 'Pinjaman Cash Advance berhasil dicatat!');
@@ -1372,6 +1384,8 @@ class WebController extends Controller
             'amount' => 'required|string',
             'payment_account_id' => 'required|exists:accounts,id',
             'description' => 'required|string|max:255',
+            'is_transferred' => 'nullable',
+            'transferred_amount' => 'nullable|string',
         ]);
 
         $amount = floatval(str_replace('.', '', $request->amount));
@@ -1379,8 +1393,19 @@ class WebController extends Controller
             return back()->withErrors(['amount' => 'Nominal pinjaman harus lebih besar dari 0.']);
         }
 
-        if ($amount < floatval($tx->loan_repaid_amount)) {
-            return back()->withErrors(['amount' => 'Nominal pinjaman baru tidak boleh kurang dari total angsuran yang sudah dibayarkan (Rp ' . number_format($tx->loan_repaid_amount, 0, ',', '.') . ').']);
+        // Validate transferred amount if is_transferred is set
+        $isTransferred = $request->has('is_transferred');
+        $transferredAmount = null;
+        if ($isTransferred) {
+            $transferredAmount = $request->transferred_amount ? floatval(str_replace('.', '', $request->transferred_amount)) : $amount;
+            if ($transferredAmount <= 0) {
+                return back()->withErrors(['transferred_amount' => 'Nominal yang ditransfer harus lebih besar dari 0.']);
+            }
+        }
+
+        $baseRepayAmount = $isTransferred ? $transferredAmount : $amount;
+        if ($baseRepayAmount < floatval($tx->loan_repaid_amount)) {
+            return back()->withErrors(['amount' => 'Nominal pinjaman/transfer tidak boleh kurang dari total angsuran yang sudah dibayarkan (Rp ' . number_format($tx->loan_repaid_amount, 0, ',', '.') . ').']);
         }
 
         $loanAccount = Account::where('code', '1203')->first();
@@ -1388,15 +1413,19 @@ class WebController extends Controller
             return back()->withErrors(['amount' => 'Akun Piutang Karyawan (1203) belum terdaftar di Chart of Accounts.']);
         }
 
-        DB::transaction(function () use ($tx, $request, $amount, $loanAccount) {
+        DB::transaction(function () use ($tx, $request, $amount, $isTransferred, $transferredAmount, $loanAccount) {
             $tx->update([
                 'transaction_date' => $request->transaction_date,
                 'description' => $request->description,
                 'recipient_name' => $request->recipient_name,
+                'is_transferred' => $isTransferred,
+                'amount' => $amount,
+                'transferred_amount' => $transferredAmount,
             ]);
 
+            $baseAmount = $isTransferred ? $transferredAmount : $amount;
             $repaid = floatval($tx->loan_repaid_amount);
-            if ($repaid >= $amount) {
+            if ($repaid >= $baseAmount) {
                 $tx->update(['loan_status' => 'repaid']);
             } else {
                 $tx->update(['loan_status' => 'open']);
@@ -1404,21 +1433,23 @@ class WebController extends Controller
 
             $tx->journalEntries()->delete();
 
-            // Debit 1203
-            JournalEntry::create([
-                'transaction_id' => $tx->id,
-                'account_id' => $loanAccount->id,
-                'type' => 'debit',
-                'amount' => $amount,
-            ]);
+            if ($isTransferred) {
+                // Debit 1203
+                JournalEntry::create([
+                    'transaction_id' => $tx->id,
+                    'account_id' => $loanAccount->id,
+                    'type' => 'debit',
+                    'amount' => $transferredAmount,
+                ]);
 
-            // Credit Cash/Bank source
-            JournalEntry::create([
-                'transaction_id' => $tx->id,
-                'account_id' => $request->payment_account_id,
-                'type' => 'credit',
-                'amount' => $amount,
-            ]);
+                // Credit Cash/Bank source
+                JournalEntry::create([
+                    'transaction_id' => $tx->id,
+                    'account_id' => $request->payment_account_id,
+                    'type' => 'credit',
+                    'amount' => $transferredAmount,
+                ]);
+            }
         });
 
         return redirect()->route('dashboard', ['activeTab' => 'cash-advances'])->with('success', 'Pinjaman Cash Advance berhasil diperbarui!');

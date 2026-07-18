@@ -28,6 +28,8 @@ class Transaction extends Model
         'reimbursement_status',
         'transfer_proof_path',
         'is_transferred',
+        'amount',
+        'transferred_amount',
         'created_by'
     ];
 

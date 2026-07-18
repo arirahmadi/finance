@@ -819,6 +819,8 @@
                                                                     'amount' => number_format($loan->amount, 0, ',', '.'),
                                                                     'payment_account_id' => $loan->payment_account_id,
                                                                     'description' => $loan->description,
+                                                                    'is_transferred' => $loan->is_transferred,
+                                                                    'transferred_amount' => $loan->transferred_amount ? number_format($loan->transferred_amount, 0, ',', '.') : '',
                                                                 ]) }}"
                                                             >
                                                                 <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1747,6 +1749,22 @@
                     <div class="form-group" style="margin-top: 14px;">
                         <label class="form-label">Keterangan / Alasan Pinjaman</label>
                         <textarea name="description" id="edit_loan_description" class="form-input" required rows="3" style="resize: none;"></textarea>
+                    </div>
+
+                    <!-- Status Transfer Checkbox & Nominal Transfer -->
+                    <div class="form-group" style="margin-top: 14px; margin-bottom: 14px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500;">
+                            <input type="checkbox" name="is_transferred" id="edit_loan_is_transferred" value="1" onchange="toggleEditLoanTransferFields()"> 
+                            <span>Sudah Ditransfer oleh Perusahaan</span>
+                        </label>
+                    </div>
+
+                    <div id="editLoanTransferDetailsSection" style="display: none; background: rgba(255, 255, 255, 0.05); padding: 12px; border-radius: 8px; border: 1px solid var(--border-glass); margin-top: 10px; margin-bottom: 14px;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label class="form-label" style="margin-bottom: 6px;">Nominal yang Ditransfer (Rupiah)</label>
+                            <input type="text" name="transferred_amount" id="edit_loan_transferred_amount" class="form-input rupiah-input" placeholder="Contoh: 2.500.000">
+                            <span style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-top: 2px;">Masukkan nominal riil yang ditransfer. Kosongkan untuk menyamakan dengan nominal pinjaman.</span>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -2850,9 +2868,37 @@
                 document.getElementById('edit_loan_payment_account').value = loan.payment_account_id;
                 document.getElementById('edit_loan_description').value = loan.description;
                 
+                // Populate is_transferred
+                const isTransferredCheckbox = document.getElementById('edit_loan_is_transferred');
+                if (isTransferredCheckbox) {
+                    isTransferredCheckbox.checked = (loan.is_transferred === true || loan.is_transferred === 1 || loan.is_transferred === "1");
+                }
+
+                // Populate transferred_amount
+                const transferredAmountInput = document.getElementById('edit_loan_transferred_amount');
+                if (transferredAmountInput) {
+                    transferredAmountInput.value = loan.transferred_amount || '';
+                }
+
+                toggleEditLoanTransferFields();
+
                 document.getElementById('editLoanModal').classList.add('active');
             } catch (e) {
                 console.error(e);
+            }
+        }
+
+        // Toggles visibility of edit loan transfer details
+        function toggleEditLoanTransferFields() {
+            const isTransferredCheckbox = document.getElementById('edit_loan_is_transferred');
+            const detailsSection = document.getElementById('editLoanTransferDetailsSection');
+            const transferredAmountInput = document.getElementById('edit_loan_transferred_amount');
+
+            if (isTransferredCheckbox && isTransferredCheckbox.checked) {
+                if (detailsSection) detailsSection.style.display = 'block';
+            } else {
+                if (detailsSection) detailsSection.style.display = 'none';
+                if (transferredAmountInput) transferredAmountInput.value = '';
             }
         }
         function closeEditLoanModal() {
