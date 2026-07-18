@@ -12,6 +12,15 @@ Route::get('/run-migration-temp', function() {
     }
 });
 
+Route::get('/force-add-column', function() {
+    try {
+        \Illuminate\Support\Facades\DB::statement("ALTER TABLE transactions ADD COLUMN is_transferred TINYINT(1) NOT NULL DEFAULT 0 AFTER transfer_proof_path");
+        return "Success: Column is_transferred has been added to transactions table!";
+    } catch (\Exception $e) {
+        return "Error/Already Exists: " . $e->getMessage();
+    }
+});
+
 // Auth Routes
 Route::get('/login', [WebController::class, 'showLogin'])->name('login');
 Route::post('/login', [WebController::class, 'login']);
