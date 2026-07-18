@@ -406,6 +406,56 @@ class WebController extends Controller
             }
         }
 
+        // ── DASHBOARD WIDGETS: Transferred-Only Summary ──
+        // 1. Regular Transactions (is_transferred = true)
+        $widgetTxIn = 0;
+        $widgetTxOut = 0;
+        $widgetTxCount = 0;
+        foreach ($formattedTransactions as $tx) {
+            if (!$tx->is_transferred) continue;
+            $widgetTxCount++;
+            if ($tx->type === 'in') {
+                $widgetTxIn += $tx->amount;
+            } elseif ($tx->type === 'out') {
+                $widgetTxOut += $tx->amount;
+            }
+        }
+
+        // 2. Settlements (is_transferred = true)
+        $widgetSettlementTotal = 0;
+        $widgetSettlementCount = 0;
+        foreach ($formattedAdvances as $adv) {
+            if (!$adv->is_transferred) continue;
+            $widgetSettlementCount++;
+            $widgetSettlementTotal += $adv->amount;
+        }
+
+        // 3. Cash Advances (is_transferred = true) — uses transferred_amount
+        $widgetCaTotal = 0;
+        $widgetCaCount = 0;
+        foreach ($formattedLoans as $loan) {
+            if (!$loan->is_transferred) continue;
+            $widgetCaCount++;
+            // Use transferred_amount if available, otherwise fall back to amount
+            $widgetCaTotal += ($loan->transferred_amount > 0) ? $loan->transferred_amount : $loan->amount;
+        }
+
+        $dashboardWidgets = (object) [
+            'transactions' => (object) [
+                'count' => $widgetTxCount,
+                'total_in' => $widgetTxIn,
+                'total_out' => $widgetTxOut,
+            ],
+            'settlements' => (object) [
+                'count' => $widgetSettlementCount,
+                'total' => $widgetSettlementTotal,
+            ],
+            'cash_advances' => (object) [
+                'count' => $widgetCaCount,
+                'total' => $widgetCaTotal,
+            ],
+        ];
+
         return view('dashboard', [
             'transactions' => $formattedTransactions,
             'summary' => (object) [
@@ -433,6 +483,7 @@ class WebController extends Controller
             'ledger_start_date' => $ledgerStartDate,
             'ledger_end_date' => $ledgerEndDate,
             'ledger_account_id' => $ledgerAccountId,
+            'dashboardWidgets' => $dashboardWidgets,
         ]);
     }
 

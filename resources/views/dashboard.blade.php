@@ -185,6 +185,69 @@
                             <div class="kpi-desc">Sisa kas yang tersedia saat ini</div>
                         </div>
                     </section>
+
+                    <!-- Transferred-Only Summary Widgets -->
+                    <section class="kpi-grid" style="margin-top: 24px;">
+                        <!-- Transaksi Ditransfer -->
+                        <div class="kpi-card glass-panel" style="border-left: 4px solid #60a5fa;">
+                            <div class="kpi-title" style="display: flex; align-items: center; gap: 8px;">
+                                <svg style="width:18px;height:18px;color:#60a5fa;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                </svg>
+                                Transaksi Ditransfer
+                            </div>
+                            <div class="kpi-value" style="font-size: 1.1rem; color: var(--text-primary);">
+                                {{ $dashboardWidgets->transactions->count }} transaksi
+                            </div>
+                            <div style="display: flex; gap: 16px; margin-top: 8px; font-size: 0.8rem;">
+                                <div>
+                                    <span style="color: var(--text-secondary);">Masuk:</span>
+                                    <span class="amount-in" style="font-weight: 600;">Rp {{ number_format($dashboardWidgets->transactions->total_in, 0, ',', '.') }}</span>
+                                </div>
+                                <div>
+                                    <span style="color: var(--text-secondary);">Keluar:</span>
+                                    <span class="amount-out" style="font-weight: 600;">Rp {{ number_format($dashboardWidgets->transactions->total_out, 0, ',', '.') }}</span>
+                                </div>
+                            </div>
+                            <div class="kpi-desc">Transaksi reguler yang sudah ditransfer</div>
+                        </div>
+
+                        <!-- Settlement Ditransfer -->
+                        <div class="kpi-card glass-panel" style="border-left: 4px solid #a78bfa;">
+                            <div class="kpi-title" style="display: flex; align-items: center; gap: 8px;">
+                                <svg style="width:18px;height:18px;color:#a78bfa;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                </svg>
+                                Settlement Ditransfer
+                            </div>
+                            <div class="kpi-value" style="font-size: 1.1rem; color: var(--text-primary);">
+                                {{ $dashboardWidgets->settlements->count }} settlement
+                            </div>
+                            <div style="margin-top: 8px; font-size: 0.8rem;">
+                                <span style="color: var(--text-secondary);">Total Dana:</span>
+                                <span class="amount-out" style="font-weight: 600;">Rp {{ number_format($dashboardWidgets->settlements->total, 0, ',', '.') }}</span>
+                            </div>
+                            <div class="kpi-desc">Uang muka karyawan yang sudah ditransfer</div>
+                        </div>
+
+                        <!-- Cash Advance Ditransfer -->
+                        <div class="kpi-card glass-panel" style="border-left: 4px solid #fbbf24;">
+                            <div class="kpi-title" style="display: flex; align-items: center; gap: 8px;">
+                                <svg style="width:18px;height:18px;color:#fbbf24;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                Cash Advance Ditransfer
+                            </div>
+                            <div class="kpi-value" style="font-size: 1.1rem; color: var(--text-primary);">
+                                {{ $dashboardWidgets->cash_advances->count }} pinjaman
+                            </div>
+                            <div style="margin-top: 8px; font-size: 0.8rem;">
+                                <span style="color: var(--text-secondary);">Total Ditransfer:</span>
+                                <span style="font-weight: 600; color: #fbbf24;">Rp {{ number_format($dashboardWidgets->cash_advances->total, 0, ',', '.') }}</span>
+                            </div>
+                            <div class="kpi-desc">Nominal riil yang ditransfer ke karyawan</div>
+                        </div>
+                    </section>
                 </div>
 
                 <!-- Section: Transactions List Tab -->
