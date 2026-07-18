@@ -3,6 +3,15 @@
 use App\Http\Controllers\Web\WebController;
 use Illuminate\Support\Facades\Route;
 
+Route::get('/run-migration-temp', function() {
+    try {
+        \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+        return "Migration Success: <pre>" . \Illuminate\Support\Facades\Artisan::output() . "</pre>";
+    } catch (\Exception $e) {
+        return "Migration Failed: " . $e->getMessage();
+    }
+});
+
 // Auth Routes
 Route::get('/login', [WebController::class, 'showLogin'])->name('login');
 Route::post('/login', [WebController::class, 'login']);
