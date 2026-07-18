@@ -233,7 +233,7 @@ class WebController extends Controller
         $formattedLoans = $loans->map(function ($tx) use (&$totalOutstandingLoans, &$totalRepaidLoans) {
             // Find loan amount from header first, fallback to 1203 entry (debit)
             $amount = floatval($tx->amount ?? 0);
-            if ($amount === 0) {
+            if ($amount == 0) {
                 foreach ($tx->journalEntries as $entry) {
                     if (Str::startsWith($entry->account->code, '1203') && $entry->type === 'debit') {
                         $amount = floatval($entry->amount);
