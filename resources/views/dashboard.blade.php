@@ -283,6 +283,30 @@
 
                     <!-- Sub-panel: Transaksi -->
                     <div id="sub-section-transactions" class="sub-tab-panel active">
+                        <!-- KPI Grid for Transactions Tab (3 categories like requested) -->
+                        <section class="kpi-grid" style="margin-bottom: 24px;">
+                            <!-- Total Uang Masuk -->
+                            <div class="kpi-card glass-panel kpi-inflow">
+                                <div class="kpi-title">Total Uang Masuk</div>
+                                <div class="kpi-value amount-in">Rp {{ number_format($summary->total_in, 0, ',', '.') }}</div>
+                                <div class="kpi-desc">Akumulasi seluruh pendapatan masuk</div>
+                            </div>
+
+                            <!-- Total Uang Keluar (Sudah Ditransfer) -->
+                            <div class="kpi-card glass-panel kpi-outflow">
+                                <div class="kpi-title">Uang Keluar (Sudah Ditransfer)</div>
+                                <div class="kpi-value amount-out">Rp {{ number_format($summary->total_out_transferred, 0, ',', '.') }}</div>
+                                <div class="kpi-desc">Total pengeluaran yang telah ditransfer</div>
+                            </div>
+
+                            <!-- Prakiraan Uang Keluar (Belum Ditransfer) -->
+                            <div class="kpi-card glass-panel" style="border-left: 4px solid #f59e0b;">
+                                <div class="kpi-title">Prakiraan Uang Keluar (Belum Ditransfer)</div>
+                                <div class="kpi-value" style="color: #fbbf24;">Rp {{ number_format($summary->total_out_estimated, 0, ',', '.') }}</div>
+                                <div class="kpi-desc">Rencana pengeluaran yang belum ditransfer</div>
+                            </div>
+                        </section>
+
                         <!-- Date Filtering and Quick Action Bar -->
                         <div class="action-filter-bar">
                         <form action="{{ route('dashboard') }}" method="GET" class="filter-form">

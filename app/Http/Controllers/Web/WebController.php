@@ -87,8 +87,10 @@ class WebController extends Controller
 
         $totalIn = 0;
         $totalOut = 0;
+        $totalOutTransferred = 0;
+        $totalOutEstimated = 0;
 
-        $formattedTransactions = $transactions->map(function ($tx) use (&$totalIn, &$totalOut) {
+        $formattedTransactions = $transactions->map(function ($tx) use (&$totalIn, &$totalOut, &$totalOutTransferred, &$totalOutEstimated) {
             $type = 'unknown';
             $amount = 0;
             $category = null;
@@ -123,6 +125,11 @@ class WebController extends Controller
                 $totalIn += $amount;
             } elseif ($type === 'out') {
                 $totalOut += $amount;
+                if ($tx->is_transferred) {
+                    $totalOutTransferred += $amount;
+                } else {
+                    $totalOutEstimated += $amount;
+                }
             }
 
             return (object) [
@@ -486,6 +493,8 @@ class WebController extends Controller
             'summary' => (object) [
                 'total_in' => $totalIn,
                 'total_out' => $totalOut,
+                'total_out_transferred' => $totalOutTransferred,
+                'total_out_estimated' => $totalOutEstimated,
                 'net_flow' => $totalIn - $totalOut,
                 'start_date' => $startDate,
                 'end_date' => $endDate,
