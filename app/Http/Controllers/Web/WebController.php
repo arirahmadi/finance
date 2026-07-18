@@ -474,7 +474,11 @@ class WebController extends Controller
 
             // Handle transfer proof path
             $transferProofPath = null;
-            if ($request->is_reimbursement && $request->reimbursement_status === 'transferred' && $request->hasFile('transfer_proof')) {
+            $isTransferred = $request->is_reimbursement 
+                ? ($request->reimbursement_status === 'transferred') 
+                : $request->has('is_transferred');
+
+            if ($isTransferred && $request->hasFile('transfer_proof')) {
                 $file = $request->file('transfer_proof');
                 $filename = Str::uuid() . '.' . $file->getClientOriginalExtension();
                 $transferProofPath = $file->storeAs('receipts', $filename, 'public');
@@ -489,9 +493,7 @@ class WebController extends Controller
                 'reimbursement_status' => $request->is_reimbursement ? ($request->reimbursement_status ?: 'pending') : null,
                 'transfer_proof_path' => $transferProofPath,
                 'created_by' => $userId,
-                'is_transferred' => $request->is_reimbursement 
-                    ? ($request->reimbursement_status === 'transferred') 
-                    : $request->has('is_transferred'),
+                'is_transferred' => $isTransferred,
             ]);
 
             // Post Jurnal Double Entry
@@ -672,26 +674,22 @@ class WebController extends Controller
 
         DB::transaction(function () use ($request, $tx, $date) {
             // Manage transfer proof file replacement
+            $isTransferred = $request->is_reimbursement 
+                ? ($request->reimbursement_status === 'transferred') 
+                : $request->has('is_transferred');
+
             $transferProofPath = $tx->transfer_proof_path;
-            if ($request->is_reimbursement) {
-                if ($request->reimbursement_status === 'transferred') {
-                    if ($request->hasFile('transfer_proof')) {
-                        if ($tx->transfer_proof_path) {
-                            Storage::disk('public')->delete($tx->transfer_proof_path);
-                        }
-                        $file = $request->file('transfer_proof');
-                        $filename = Str::uuid() . '.' . $file->getClientOriginalExtension();
-                        $transferProofPath = $file->storeAs('receipts', $filename, 'public');
-                    }
-                } else {
-                    // Changing to pending: clear transfer proof
+            if ($isTransferred) {
+                if ($request->hasFile('transfer_proof')) {
                     if ($tx->transfer_proof_path) {
                         Storage::disk('public')->delete($tx->transfer_proof_path);
-                        $transferProofPath = null;
                     }
+                    $file = $request->file('transfer_proof');
+                    $filename = Str::uuid() . '.' . $file->getClientOriginalExtension();
+                    $transferProofPath = $file->storeAs('receipts', $filename, 'public');
                 }
             } else {
-                // Changing to normal: clear transfer proof
+                // Changing to pending/not transferred: clear transfer proof file
                 if ($tx->transfer_proof_path) {
                     Storage::disk('public')->delete($tx->transfer_proof_path);
                     $transferProofPath = null;
@@ -705,9 +703,7 @@ class WebController extends Controller
                 'is_reimbursement' => $request->is_reimbursement ? true : false,
                 'reimbursement_status' => $request->is_reimbursement ? ($request->reimbursement_status ?: 'pending') : null,
                 'transfer_proof_path' => $transferProofPath,
-                'is_transferred' => $request->is_reimbursement 
-                    ? ($request->reimbursement_status === 'transferred') 
-                    : $request->has('is_transferred'),
+                'is_transferred' => $isTransferred,
             ]);
 
             // 2. Clear old journal entries and recreate them

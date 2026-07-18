@@ -1271,12 +1271,20 @@
                         </div>
                     </div>
 
-                    <!-- Non-Reimbursement Transfer Status Checkbox -->
+                    <!-- Non-Reimbursement Transfer Status Checkbox & Proof Upload -->
                     <div class="form-group" id="nonReimbursementTransferSection" style="margin-top: 14px; margin-bottom: 14px;">
                         <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500;">
-                            <input type="checkbox" name="is_transferred" id="tx_is_transferred" value="1" checked> 
-                            <span>Transaksi Sudah Ditransfer / Diterima (Clear)</span>
+                            <input type="checkbox" name="is_transferred" id="tx_is_transferred" value="1" checked onchange="toggleNonReimbursementTransferFields()"> 
+                            <span id="label_tx_is_transferred">Sudah Ditransfer oleh Perusahaan</span>
                         </label>
+                    </div>
+
+                    <div id="nonReimburseTransferDetailsSection" style="display: none; background: rgba(255, 255, 255, 0.05); padding: 12px; border-radius: 8px; border: 1px solid var(--border-glass); margin-top: 10px; margin-bottom: 14px;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label class="form-label" style="margin-bottom: 6px;">Unggah Bukti Transfer Bank</label>
+                            <input type="file" name="transfer_proof" id="tx_non_reimb_transfer_proof" class="form-input" accept="image/*,application/pdf">
+                            <span id="nonReimbTransferProofUploadMsg" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-top: 2px;">Unggah bukti transfer bank. Max: 5MB</span>
+                        </div>
                     </div>
 
                     <!-- Payment Asset Account Selector (Kas/Bank) -->
@@ -2111,11 +2119,24 @@
                 checkboxIsTransferred.checked = (tx.isTransferred === true || tx.isTransferred === 1 || tx.isTransferred === "1");
             }
 
+            const nonReimbProofMsg = document.getElementById('nonReimbTransferProofUploadMsg');
+            const fileNonReimbTransferProof = document.getElementById('tx_non_reimb_transfer_proof');
+            if (fileNonReimbTransferProof) fileNonReimbTransferProof.value = '';
+
             if (tx.hasTransferProof) {
-                if (transferProofMsg) transferProofMsg.innerHTML = `Bukti transfer saat ini: <strong>${tx.transferProofName}</strong><br><span style="font-size: 0.8rem; color: var(--text-muted);">Pilih file baru jika ingin mengganti</span>`;
+                if (tx.isReimbursement) {
+                    if (transferProofMsg) transferProofMsg.innerHTML = `Bukti transfer saat ini: <strong>${tx.transferProofName}</strong><br><span style="font-size: 0.8rem; color: var(--text-muted);">Pilih file baru jika ingin mengganti</span>`;
+                    if (nonReimbProofMsg) nonReimbProofMsg.innerHTML = 'Unggah bukti transfer bank. Max: 5MB';
+                } else {
+                    if (nonReimbProofMsg) nonReimbProofMsg.innerHTML = `Bukti transfer saat ini: <strong>${tx.transferProofName}</strong><br><span style="font-size: 0.8rem; color: var(--text-muted);">Pilih file baru jika ingin mengganti</span>`;
+                    if (transferProofMsg) transferProofMsg.innerHTML = 'Unggah bukti transfer bank. Max: 5MB';
+                }
             } else {
                 if (transferProofMsg) transferProofMsg.innerHTML = 'Unggah bukti transfer bank. Max: 5MB';
+                if (nonReimbProofMsg) nonReimbProofMsg.innerHTML = 'Unggah bukti transfer bank. Max: 5MB';
             }
+
+            toggleNonReimbursementTransferFields();
 
             // Reset File input value
             document.getElementById('tx_receipt').value = '';
@@ -2200,6 +2221,26 @@
                 if (statusCheckbox) statusCheckbox.checked = false;
             }
             toggleReimbursementTransferFields();
+            toggleNonReimbursementTransferFields();
+        }
+
+        // Toggles visibility of normal transaction transfer proof section
+        function toggleNonReimbursementTransferFields() {
+            const isReimbursementCheckbox = document.getElementById('tx_is_reimbursement');
+            const isTransferredCheckbox = document.getElementById('tx_is_transferred');
+            const detailsSection = document.getElementById('nonReimburseTransferDetailsSection');
+            const fileInput = document.getElementById('tx_non_reimb_transfer_proof');
+
+            if (isReimbursementCheckbox && !isReimbursementCheckbox.checked) {
+                if (isTransferredCheckbox && isTransferredCheckbox.checked) {
+                    if (detailsSection) detailsSection.style.display = 'block';
+                } else {
+                    if (detailsSection) detailsSection.style.display = 'none';
+                    if (fileInput) fileInput.value = '';
+                }
+            } else {
+                if (detailsSection) detailsSection.style.display = 'none';
+            }
         }
 
         // Toggles required attributes & visibility of source Kas/Bank and transfer proof file
