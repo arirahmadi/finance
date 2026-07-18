@@ -489,6 +489,9 @@ class WebController extends Controller
                 'reimbursement_status' => $request->is_reimbursement ? ($request->reimbursement_status ?: 'pending') : null,
                 'transfer_proof_path' => $transferProofPath,
                 'created_by' => $userId,
+                'is_transferred' => $request->is_reimbursement 
+                    ? ($request->reimbursement_status === 'transferred') 
+                    : $request->has('is_transferred'),
             ]);
 
             // Post Jurnal Double Entry
@@ -702,6 +705,9 @@ class WebController extends Controller
                 'is_reimbursement' => $request->is_reimbursement ? true : false,
                 'reimbursement_status' => $request->is_reimbursement ? ($request->reimbursement_status ?: 'pending') : null,
                 'transfer_proof_path' => $transferProofPath,
+                'is_transferred' => $request->is_reimbursement 
+                    ? ($request->reimbursement_status === 'transferred') 
+                    : $request->has('is_transferred'),
             ]);
 
             // 2. Clear old journal entries and recreate them
@@ -954,6 +960,7 @@ class WebController extends Controller
                 'is_advance' => true,
                 'advance_status' => 'open',
                 'created_by' => Auth::id(),
+                'is_transferred' => $request->has('is_transferred'),
             ]);
 
             // 2. Double-Entry Bookkeeping:
@@ -1329,6 +1336,7 @@ class WebController extends Controller
                 'loan_status' => 'open',
                 'loan_repaid_amount' => 0,
                 'created_by' => Auth::id(),
+                'is_transferred' => $request->has('is_transferred'),
             ]);
 
             // Debit 1203
