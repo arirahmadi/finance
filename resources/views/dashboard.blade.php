@@ -364,64 +364,7 @@
                         </div>
                     </div>
 
-                    <!-- Widget Ringkasan per Kategori -->
-                    @if (isset($categorySummary) && count($categorySummary) > 0)
-                        <section class="glass-panel" style="margin-bottom: 24px; padding: 20px;">
-                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
-                                <h3 style="font-size: 1.1rem; font-weight: 600; display: flex; align-items: center; gap: 8px;">
-                                    <svg style="width: 20px; height: 20px; color: var(--color-primary);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                                    </svg>
-                                    Ringkasan per Kategori
-                                </h3>
-                                <span style="font-size: 0.75rem; color: var(--text-secondary); background: rgba(255, 255, 255, 0.05); padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-glass);">
-                                    {{ count($categorySummary) }} Kategori Terdaftar
-                                </span>
-                            </div>
-                            <div class="table-wrapper" style="overflow-x: auto; border: 1px solid var(--border-glass); border-radius: 12px; background: rgba(0,0,0,0.2);">
-                                <table class="table" style="margin-bottom: 0;">
-                                    <thead>
-                                        <tr style="background: rgba(255, 255, 255, 0.02);">
-                                            <th>Nama Kategori</th>
-                                            <th style="text-align: right; width: 22%;">Uang Masuk</th>
-                                            <th style="text-align: right; width: 25%;">Uang Keluar <span style="font-size: 0.7rem; color: var(--text-secondary); font-weight: normal; display: block;">(Sudah Ditransfer)</span></th>
-                                            <th style="text-align: right; width: 28%;">Prakiraan Uang Keluar <span style="font-size: 0.7rem; color: var(--text-secondary); font-weight: normal; display: block;">(Belum Ditransfer)</span></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach ($categorySummary as $summary)
-                                            @if ($summary->uang_masuk > 0 || $summary->uang_keluar_transfer > 0 || $summary->uang_keluar_prakiraan > 0)
-                                                <tr>
-                                                    <td style="font-weight: 500; color: var(--text-primary);">{{ $summary->category }}</td>
-                                                    <td style="text-align: right;" class="amount-in">
-                                                        @if ($summary->uang_masuk > 0)
-                                                            + Rp {{ number_format($summary->uang_masuk, 0, ',', '.') }}
-                                                        @else
-                                                            <span style="color: var(--text-muted); font-weight: normal;">-</span>
-                                                        @endif
-                                                    </td>
-                                                    <td style="text-align: right;" class="amount-out">
-                                                        @if ($summary->uang_keluar_transfer > 0)
-                                                            - Rp {{ number_format($summary->uang_keluar_transfer, 0, ',', '.') }}
-                                                        @else
-                                                            <span style="color: var(--text-muted); font-weight: normal;">-</span>
-                                                        @endif
-                                                    </td>
-                                                    <td style="text-align: right; color: #fbbf24; font-weight: 600;">
-                                                        @if ($summary->uang_keluar_prakiraan > 0)
-                                                            - Rp {{ number_format($summary->uang_keluar_prakiraan, 0, ',', '.') }}
-                                                        @else
-                                                            <span style="color: var(--text-muted); font-weight: normal;">-</span>
-                                                        @endif
-                                                    </td>
-                                                </tr>
-                                            @endif
-                                        @endforeach
-                                    </tbody>
-                                </table>
-                            </div>
-                        </section>
-                    @endif
+
 
                     <!-- Transactions Table Card -->
                     <section class="glass-panel table-card">
@@ -854,16 +797,33 @@
 
                 <!-- Sub-panel: Cash Advances (Pinjaman Karyawan) -->
                 <div id="sub-section-cash-advances" class="sub-tab-panel" style="display: none;">
-                    <section class="kpi-grid">
+                    <section class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+                        <!-- Total Uang Keluar (Sudah Ditransfer) -->
                         <div class="kpi-card glass-panel kpi-outflow">
-                            <div class="kpi-title">Outstanding Pinjaman (Piutang Karyawan)</div>
-                            <div class="kpi-value amount-out">Rp {{ number_format($loanSummary->total_outstanding, 0, ',', '.') }}</div>
-                            <div class="kpi-desc">Sisa piutang pinjaman aktif yang belum lunas</div>
+                            <div class="kpi-title">Total Uang Keluar (Sudah Ditransfer)</div>
+                            <div class="kpi-value amount-out">Rp {{ number_format($loanSummary->total_transferred, 0, ',', '.') }}</div>
+                            <div class="kpi-desc">Akumulasi pinjaman yang sudah ditransfer</div>
                         </div>
+
+                        <!-- Prakiraan Uang Keluar (Belum Ditransfer) -->
+                        <div class="kpi-card glass-panel" style="border-left: 4px solid #f59e0b;">
+                            <div class="kpi-title">Prakiraan Uang Keluar (Belum Ditransfer)</div>
+                            <div class="kpi-value" style="color: #fbbf24;">Rp {{ number_format($loanSummary->total_estimated, 0, ',', '.') }}</div>
+                            <div class="kpi-desc">Pengajuan pinjaman baru yang belum ditransfer</div>
+                        </div>
+
+                        <!-- Pinjaman Lunas -->
                         <div class="kpi-card glass-panel kpi-inflow">
                             <div class="kpi-title">Pinjaman Lunas</div>
                             <div class="kpi-value amount-in">Rp {{ number_format($loanSummary->total_repaid, 0, ',', '.') }}</div>
-                            <div class="kpi-desc">Akumulasi total pinjaman yang sudah dikembalikan penuh</div>
+                            <div class="kpi-desc">Akumulasi total pinjaman yang sudah lunas</div>
+                        </div>
+
+                        <!-- Pinjaman Belum Lunas -->
+                        <div class="kpi-card glass-panel kpi-outflow" style="border-left: 4px solid #ef4444;">
+                            <div class="kpi-title">Pinjaman Belum Lunas (Outstanding)</div>
+                            <div class="kpi-value" style="color: #f87171;">Rp {{ number_format($loanSummary->total_outstanding, 0, ',', '.') }}</div>
+                            <div class="kpi-desc">Sisa piutang aktif yang harus dikembalikan</div>
                         </div>
                     </section>
 

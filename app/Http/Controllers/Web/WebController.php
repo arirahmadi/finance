@@ -261,8 +261,10 @@ class WebController extends Controller
 
         $totalOutstandingLoans = 0;
         $totalRepaidLoans = 0;
+        $totalLoanTransferred = 0;
+        $totalLoanEstimated = 0;
 
-        $formattedLoans = $loans->map(function ($tx) use (&$totalOutstandingLoans, &$totalRepaidLoans) {
+        $formattedLoans = $loans->map(function ($tx) use (&$totalOutstandingLoans, &$totalRepaidLoans, &$totalLoanTransferred, &$totalLoanEstimated) {
             // Find loan amount from header first, fallback to 1203 entry (debit)
             $amount = floatval($tx->amount ?? 0);
             if ($amount == 0) {
@@ -275,6 +277,12 @@ class WebController extends Controller
 
             if ($amount === 0 && $tx->journalEntries->isNotEmpty()) {
                 $amount = floatval($tx->journalEntries->first()->amount);
+            }
+
+            if ($tx->is_transferred) {
+                $totalLoanTransferred += floatval($tx->transferred_amount ?: $amount);
+            } else {
+                $totalLoanEstimated += $amount;
             }
 
             $paymentSource = '';
@@ -347,6 +355,8 @@ class WebController extends Controller
         $loanSummary = (object) [
             'total_outstanding' => $totalOutstandingLoans,
             'total_repaid' => $totalRepaidLoans,
+            'total_transferred' => $totalLoanTransferred,
+            'total_estimated' => $totalLoanEstimated,
         ];
 
         // ── LOAD GENERAL LEDGER (BUKU BESAR) DATA ──
