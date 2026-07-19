@@ -504,14 +504,16 @@ class WebController extends Controller
             ],
         ];
 
+        $totalOutCombined = $widgetTxOut + $widgetSettlementTotal + $widgetCaTotal;
+
         return view('dashboard', [
             'transactions' => $formattedTransactions,
             'summary' => (object) [
                 'total_in' => $totalIn,
-                'total_out' => $totalOut,
+                'total_out' => $totalOutCombined,
                 'total_out_transferred' => $totalOutTransferred,
                 'total_out_estimated' => $totalOutEstimated,
-                'net_flow' => $totalIn - $totalOut,
+                'net_flow' => $totalIn - $totalOutCombined,
                 'start_date' => $startDate,
                 'end_date' => $endDate,
             ],
