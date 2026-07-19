@@ -121,11 +121,15 @@ class WebController extends Controller
                 $amount = floatval($tx->journalEntries->first()->amount);
             }
 
+            $isTransferredValue = $tx->is_reimbursement
+                ? ($tx->reimbursement_status === 'transferred')
+                : ($tx->is_transferred ? true : false);
+
             if ($type === 'in') {
                 $totalIn += $amount;
             } elseif ($type === 'out') {
                 $totalOut += $amount;
-                if ($tx->is_transferred) {
+                if ($isTransferredValue) {
                     $totalOutTransferred += $amount;
                 } else {
                     $totalOutEstimated += $amount;
@@ -149,7 +153,7 @@ class WebController extends Controller
                 'transfer_proof_url' => $tx->transfer_proof_path ? route('web.attachments.show', ['path' => $tx->transfer_proof_path]) : null,
                 'attachments' => $tx->attachments,
                 'creator' => $tx->creator->name ?? null,
-                'is_transferred' => $tx->is_transferred,
+                'is_transferred' => $isTransferredValue,
             ];
         });
 
@@ -302,7 +306,9 @@ class WebController extends Controller
             if ($tx->loan_status === 'repaid') {
                 $totalRepaidLoans += $amount;
             } else {
-                $totalOutstandingLoans += $remainingAmount;
+                if ($tx->is_transferred) {
+                    $totalOutstandingLoans += $remainingAmount;
+                }
             }
 
             // Repayments for this loan
