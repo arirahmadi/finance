@@ -29,6 +29,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Cash Advance (Pinjaman Karyawan)
     Route::post('/cash-advances', [TransactionController::class, 'storeLoan']);
+    Route::put('/cash-advances/{id}', [TransactionController::class, 'updateLoan']);
     Route::post('/cash-advances/{id}/repay', [TransactionController::class, 'storeRepayment']);
 
     // General Ledger (Buku Besar)

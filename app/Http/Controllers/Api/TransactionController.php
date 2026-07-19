@@ -111,6 +111,7 @@ class TransactionController extends Controller
                 'loan_repaid_amount' => $tx->loan_repaid_amount,
                 'loan_parent_id' => $tx->loan_parent_id,
                 'is_transferred' => $tx->is_transferred ? true : false,
+                'transferred_amount' => $tx->transferred_amount ? floatval($tx->transferred_amount) : null,
                 'raw_journal_entries' => $tx->journalEntries,
             ];
         });
@@ -595,6 +596,7 @@ class TransactionController extends Controller
             'payment_account_id' => 'required|exists:accounts,id',
             'description' => 'required|string|max:255',
             'is_transferred' => 'nullable|boolean',
+            'transferred_amount' => 'nullable|numeric|min:0',
         ]);
 
         $amount = floatval($request->amount);
@@ -614,6 +616,9 @@ class TransactionController extends Controller
             $seq = str_pad($countToday + 1, 4, '0', STR_PAD_LEFT);
             $txNum = "CA-{$datePrefix}-{$seq}";
 
+            $isTransferred = $request->has('is_transferred') ? filter_var($request->is_transferred, FILTER_VALIDATE_BOOLEAN) : false;
+            $transferredAmount = $isTransferred ? ($request->has('transferred_amount') ? floatval($request->transferred_amount) : $amount) : null;
+
             $tx = Transaction::create([
                 'transaction_number' => $txNum,
                 'transaction_date' => $request->transaction_date,
@@ -623,23 +628,27 @@ class TransactionController extends Controller
                 'is_loan' => true,
                 'loan_status' => 'open',
                 'loan_repaid_amount' => 0,
-                'is_transferred' => $request->has('is_transferred') ? filter_var($request->is_transferred, FILTER_VALIDATE_BOOLEAN) : false,
+                'is_transferred' => $isTransferred,
+                'amount' => $amount,
+                'transferred_amount' => $transferredAmount,
                 'created_by' => Auth::id(),
             ]);
 
-            JournalEntry::create([
-                'transaction_id' => $tx->id,
-                'account_id' => $loanAccount->id,
-                'type' => 'debit',
-                'amount' => $amount,
-            ]);
+            if ($isTransferred) {
+                JournalEntry::create([
+                    'transaction_id' => $tx->id,
+                    'account_id' => $loanAccount->id,
+                    'type' => 'debit',
+                    'amount' => $transferredAmount,
+                ]);
 
-            JournalEntry::create([
-                'transaction_id' => $tx->id,
-                'account_id' => $request->payment_account_id,
-                'type' => 'credit',
-                'amount' => $amount,
-            ]);
+                JournalEntry::create([
+                    'transaction_id' => $tx->id,
+                    'account_id' => $request->payment_account_id,
+                    'type' => 'credit',
+                    'amount' => $transferredAmount,
+                ]);
+            }
 
             return $tx;
         });
@@ -879,6 +888,98 @@ class TransactionController extends Controller
             'starting_balance' => $startingBalance,
             'ending_balance' => $runningBalance,
             'entries' => $formattedEntries,
+        ]);
+    }
+
+    /**
+     * Update an existing Cash Advance loan.
+     */
+    public function updateLoan(Request $request, int $id): JsonResponse
+    {
+        $tx = Transaction::where('is_loan', true)->findOrFail($id);
+
+        $request->validate([
+            'transaction_date' => 'required|date',
+            'recipient_name' => 'required|string|max:255',
+            'amount' => 'required|numeric|min:0.01',
+            'payment_account_id' => 'required|exists:accounts,id',
+            'description' => 'required|string|max:255',
+            'is_transferred' => 'nullable|boolean',
+            'transferred_amount' => 'nullable|numeric|min:0',
+        ]);
+
+        $amount = floatval($request->amount);
+
+        // Validate transferred amount if is_transferred is set
+        $isTransferred = $request->has('is_transferred') ? filter_var($request->is_transferred, FILTER_VALIDATE_BOOLEAN) : false;
+        $transferredAmount = null;
+        if ($isTransferred) {
+            $transferredAmount = $request->has('transferred_amount') ? floatval($request->transferred_amount) : $amount;
+            if ($transferredAmount <= 0) {
+                return response()->json([
+                    'message' => 'Nominal yang ditransfer harus lebih besar dari 0.',
+                ], 422);
+            }
+        }
+
+        $baseRepayAmount = $isTransferred ? $transferredAmount : $amount;
+        if ($baseRepayAmount < floatval($tx->loan_repaid_amount)) {
+            return response()->json([
+                'message' => 'Nominal pinjaman/transfer tidak boleh kurang dari total angsuran yang sudah dibayarkan (Rp ' . number_format($tx->loan_repaid_amount, 0, ',', '.') . ').',
+            ], 422);
+        }
+
+        $loanAccount = Account::where('code', '1203')->first();
+        if (!$loanAccount) {
+            return response()->json([
+                'message' => 'Akun Piutang Karyawan (1203) belum terdaftar.',
+            ], 422);
+        }
+
+        DB::transaction(function () use ($tx, $request, $amount, $isTransferred, $transferredAmount, $loanAccount) {
+            $tx->update([
+                'transaction_date' => $request->transaction_date,
+                'description' => $request->description,
+                'recipient_name' => $request->recipient_name,
+                'is_transferred' => $isTransferred,
+                'amount' => $amount,
+                'transferred_amount' => $transferredAmount,
+            ]);
+
+            $baseAmount = $isTransferred ? $transferredAmount : $amount;
+            $repaid = floatval($tx->loan_repaid_amount);
+            if ($repaid >= $baseAmount) {
+                $tx->update(['loan_status' => 'repaid']);
+            } else {
+                $tx->update(['loan_status' => 'open']);
+            }
+
+            $tx->journalEntries()->delete();
+
+            if ($isTransferred) {
+                // Debit 1203
+                JournalEntry::create([
+                    'transaction_id' => $tx->id,
+                    'account_id' => $loanAccount->id,
+                    'type' => 'debit',
+                    'amount' => $transferredAmount,
+                ]);
+
+                // Credit Cash/Bank source
+                JournalEntry::create([
+                    'transaction_id' => $tx->id,
+                    'account_id' => $request->payment_account_id,
+                    'type' => 'credit',
+                    'amount' => $transferredAmount,
+                ]);
+            }
+        });
+
+        $tx->load(['journalEntries.account', 'attachments']);
+
+        return response()->json([
+            'message' => 'Pinjaman berhasil diperbarui!',
+            'data' => $tx,
         ]);
     }
 
