@@ -507,7 +507,12 @@ class WebController extends Controller
 
         $totalOutCombined = $widgetTxOut + $widgetSettlementTotal + $widgetCaTotal;
 
-        $employees = Employee::orderBy('employee_no', 'asc')->get();
+        // Try to get employees - graceful fallback if emp_master table not yet migrated
+        try {
+            $employees = Employee::orderBy('employee_no', 'asc')->get();
+        } catch (\Exception $e) {
+            $employees = collect([]);
+        }
 
         return view('dashboard', [
             'transactions' => $formattedTransactions,
