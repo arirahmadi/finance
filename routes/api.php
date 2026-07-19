@@ -38,4 +38,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // User & Roles (Owner-only)
     Route::get('/users', [AuthController::class, 'users']);
     Route::put('/users/{id}/role', [AuthController::class, 'updateUserRole']);
+
+    // Employees Management (HRIS)
+    Route::apiResource('employees', \App\Http\Controllers\Api\EmployeeController::class);
 });

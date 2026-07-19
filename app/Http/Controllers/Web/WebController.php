@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use App\Models\Account;
 use App\Models\Attachment;
+use App\Models\Employee;
 use App\Models\JournalEntry;
 use App\Models\Transaction;
 use App\Models\User;
@@ -506,6 +507,8 @@ class WebController extends Controller
 
         $totalOutCombined = $widgetTxOut + $widgetSettlementTotal + $widgetCaTotal;
 
+        $employees = Employee::orderBy('employee_no', 'asc')->get();
+
         return view('dashboard', [
             'transactions' => $formattedTransactions,
             'summary' => (object) [
@@ -537,6 +540,7 @@ class WebController extends Controller
             'ledger_account_id' => $ledgerAccountId,
             'dashboardWidgets' => $dashboardWidgets,
             'categorySummary' => $categorySummary,
+            'employees' => $employees,
         ]);
     }
 
@@ -1781,5 +1785,124 @@ class WebController extends Controller
         });
 
         return back()->with('success', 'Pembayaran reimbursement berhasil ditransfer!');
+    }
+
+    /**
+     * Store new employee.
+     */
+    public function storeEmployee(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'hti_id' => 'nullable|string',
+            'first_name' => 'required|string',
+            'last_name' => 'nullable|string',
+            'date_of_birth' => 'nullable|date',
+            'place_of_birth' => 'nullable|string',
+            'sex' => 'nullable|string',
+            'religion' => 'nullable|string',
+            'marital_status' => 'nullable|string',
+            'nationality' => 'nullable|string',
+            'permanent_address' => 'nullable|string',
+            'permanent_city' => 'nullable|string',
+            'correspondence_address' => 'nullable|string',
+            'correspondence_city' => 'nullable|string',
+            'telp_no' => 'nullable|string',
+            'handphone' => 'nullable|string',
+            'email' => 'nullable|email',
+            'ktp_no' => 'nullable|string',
+            'passport_no' => 'nullable|string',
+            'npwp_no' => 'nullable|string',
+            'jamsostek_no' => 'nullable|string',
+            'tax_status' => 'nullable|string',
+            'division' => 'nullable|string',
+            'employee_status' => 'nullable|string',
+            'rehired_date' => 'nullable|date',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date',
+            'resign_date' => 'nullable|date',
+            'temp_ext' => 'nullable|string',
+            'status' => 'nullable|string',
+            'is_freelance' => 'nullable|boolean',
+        ]);
+
+        // Auto-generate employee_no starting from BS0001
+        DB::transaction(function() use (&$data) {
+            $lastEmployee = Employee::where('employee_no', 'like', 'BS%')
+                ->orderBy('employee_no', 'desc')
+                ->first();
+
+            $nextNumber = 1;
+            if ($lastEmployee) {
+                $lastNum = intval(substr($lastEmployee->employee_no, 2));
+                $nextNumber = $lastNum + 1;
+            }
+
+            $data['employee_no'] = sprintf('BS%04d', $nextNumber);
+            $data['fullname'] = trim(($data['first_name'] ?? '') . ' ' . ($data['last_name'] ?? ''));
+            $data['is_freelance'] = isset($data['is_freelance']) ? (bool)$data['is_freelance'] : false;
+
+            Employee::create($data);
+        });
+
+        return redirect()->route('dashboard', ['activeTab' => 'employee'])->with('success', 'Karyawan baru berhasil ditambahkan!');
+    }
+
+    /**
+     * Update existing employee.
+     */
+    public function updateEmployee(Request $request, $id): RedirectResponse
+    {
+        $employee = Employee::findOrFail($id);
+
+        $data = $request->validate([
+            'hti_id' => 'nullable|string',
+            'first_name' => 'required|string',
+            'last_name' => 'nullable|string',
+            'date_of_birth' => 'nullable|date',
+            'place_of_birth' => 'nullable|string',
+            'sex' => 'nullable|string',
+            'religion' => 'nullable|string',
+            'marital_status' => 'nullable|string',
+            'nationality' => 'nullable|string',
+            'permanent_address' => 'nullable|string',
+            'permanent_city' => 'nullable|string',
+            'correspondence_address' => 'nullable|string',
+            'correspondence_city' => 'nullable|string',
+            'telp_no' => 'nullable|string',
+            'handphone' => 'nullable|string',
+            'email' => 'nullable|email',
+            'ktp_no' => 'nullable|string',
+            'passport_no' => 'nullable|string',
+            'npwp_no' => 'nullable|string',
+            'jamsostek_no' => 'nullable|string',
+            'tax_status' => 'nullable|string',
+            'division' => 'nullable|string',
+            'employee_status' => 'nullable|string',
+            'rehired_date' => 'nullable|date',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date',
+            'resign_date' => 'nullable|date',
+            'temp_ext' => 'nullable|string',
+            'status' => 'nullable|string',
+            'is_freelance' => 'nullable|boolean',
+        ]);
+
+        $data['fullname'] = trim(($data['first_name'] ?? '') . ' ' . ($data['last_name'] ?? ''));
+        $data['is_freelance'] = isset($data['is_freelance']) ? (bool)$data['is_freelance'] : false;
+
+        $employee->update($data);
+
+        return redirect()->route('dashboard', ['activeTab' => 'employee'])->with('success', 'Data karyawan berhasil diperbarui!');
+    }
+
+    /**
+     * Delete employee.
+     */
+    public function deleteEmployee($id): RedirectResponse
+    {
+        $employee = Employee::findOrFail($id);
+        $employee->delete();
+
+        return redirect()->route('dashboard', ['activeTab' => 'employee'])->with('success', 'Karyawan berhasil dihapus!');
     }
 }

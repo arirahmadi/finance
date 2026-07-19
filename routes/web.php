@@ -66,6 +66,11 @@ Route::middleware('auth')->group(function () {
     Route::delete('/cash-advances/{id}', [WebController::class, 'deleteLoan'])->name('web.cash_advances.destroy');
     Route::post('/cash-advances/{id}/repay', [WebController::class, 'storeRepayment'])->name('web.cash_advances.repay');
     Route::delete('/cash-advances/repay/{repayment_id}', [WebController::class, 'deleteRepayment'])->name('web.cash_advances.destroyRepayment');
+
+    // Employees Management (HRIS)
+    Route::post('/employees', [WebController::class, 'storeEmployee'])->name('web.employees.store');
+    Route::put('/employees/{id}', [WebController::class, 'updateEmployee'])->name('web.employees.update');
+    Route::delete('/employees/{id}', [WebController::class, 'deleteEmployee'])->name('web.employees.destroy');
 });
 
 // Fallback route for viewing attachments (since PHP symlink() is disabled on Hostinger)

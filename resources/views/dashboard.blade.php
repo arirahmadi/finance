@@ -10,6 +10,145 @@
         const savedTheme = localStorage.getItem('theme') || 'dark';
         document.documentElement.setAttribute('data-theme', savedTheme);
     </script>
+    <style>
+        .form-grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+        .form-grid-2 {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+        @media (max-width: 768px) {
+            .form-grid-3, .form-grid-2 {
+                grid-template-columns: 1fr;
+            }
+        }
+        .table th, .table td {
+            white-space: nowrap;
+        }
+        th.sortable {
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+            padding-right: 28px !important;
+        }
+        th.sortable:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--color-primary);
+        }
+        th.sortable::after {
+            content: ' ⇅';
+            position: absolute;
+            right: 8px;
+            opacity: 0.4;
+        }
+        th.sortable.asc::after {
+            content: ' ▲';
+            opacity: 0.9;
+            color: var(--color-primary);
+        }
+        th.sortable.desc::after {
+            content: ' ▼';
+            opacity: 0.9;
+            color: var(--color-primary);
+        }
+        #sub-section-transactions table.table th,
+        #sub-section-transactions table.table td,
+        #sub-section-settlements table.table th,
+        #sub-section-settlements table.table td,
+        #sub-section-cash-advances table.table th,
+        #sub-section-cash-advances table.table td {
+            padding: 8px 12px;
+            font-size: 0.8rem;
+        }
+        #sub-section-transactions table.table th,
+        #sub-section-settlements table.table th,
+        #sub-section-cash-advances table.table th {
+            font-size: 0.72rem;
+        }
+
+        /* ===== PAGINATION ===== */
+        .pagination-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            padding: 12px 16px;
+            border-top: 1px solid var(--border-glass);
+            margin-top: 0;
+        }
+        .pagination-info {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+        .pagination-controls {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .pagination-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 32px;
+            height: 32px;
+            padding: 0 8px;
+            border-radius: 8px;
+            border: 1px solid var(--border-glass);
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 0.82rem;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .pagination-btn:hover:not(:disabled) {
+            background: rgba(255,255,255,0.08);
+            color: var(--text-primary);
+            border-color: var(--color-primary);
+        }
+        .pagination-btn.active {
+            background: var(--color-primary);
+            color: #fff;
+            border-color: var(--color-primary);
+            font-weight: 600;
+        }
+        .pagination-btn:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+        .pagination-per-page {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+        .pagination-per-page select,
+        .pagination-per-page input[type="number"] {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border-glass);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 0.8rem;
+            padding: 4px 8px;
+            height: 32px;
+            outline: none;
+            cursor: pointer;
+        }
+        .pagination-per-page input[type="number"] {
+            width: 64px;
+        }
+        .pagination-ellipsis {
+            color: var(--text-muted);
+            padding: 0 4px;
+            font-size: 0.82rem;
+        }
+    </style>
 </head>
 <body>
     <!-- Early-defined dismiss function so onclick works before main script loads -->
@@ -89,30 +228,48 @@
                     </svg>
                     <span>Dashboard</span>
                 </a>
+
+                {{-- ===== HR DATA GROUP ===== --}}
+                <div class="sidebar-section-header" style="padding: 14px 16px 4px 16px; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); font-weight: 700;">HR Data</div>
+
+                <a href="{{ route('dashboard') }}?activeTab=employee" onclick="if (!event.ctrlKey && !event.metaKey && event.button !== 1) { event.preventDefault(); switchTab('employee'); closeSidebar(); }" id="nav-employee" class="sidebar-nav-item" style="text-decoration: none;">
+                    <svg style="width:22px;height:22px;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <span>Employees</span>
+                </a>
+                <a href="#" onclick="event.preventDefault();" class="sidebar-nav-item" style="text-decoration: none; opacity: 0.45; cursor: not-allowed;" title="Segera hadir">
+                    <svg style="width:22px;height:22px;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span>HR Report</span>
+                </a>
+
+                {{-- ===== FINANCE GROUP ===== --}}
                 @if (Auth::user()->hasPermission('view_transactions'))
-                    <a href="{{ route('dashboard') }}?activeTab=transactions" onclick="if (!event.ctrlKey && !event.metaKey && event.button !== 1) { event.preventDefault(); switchTab('transactions'); closeSidebar(); }" id="nav-transactions" class="sidebar-nav-item" style="text-decoration: none;">
-                        <svg style="width:22px;height:22px;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                        </svg>
-                        <span>Transaksi</span>
-                    </a>
+                <div class="sidebar-section-header" style="padding: 14px 16px 4px 16px; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); font-weight: 700;">Finance</div>
+
+                <a href="{{ route('dashboard') }}?activeTab=transactions" onclick="if (!event.ctrlKey && !event.metaKey && event.button !== 1) { event.preventDefault(); switchTab('transactions'); closeSidebar(); }" id="nav-transactions" class="sidebar-nav-item" style="text-decoration: none;">
+                    <svg style="width:22px;height:22px;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                    </svg>
+                    <span>Transactions</span>
+                </a>
+                <a href="{{ route('dashboard') }}?activeTab=ledger" onclick="if (!event.ctrlKey && !event.metaKey && event.button !== 1) { event.preventDefault(); switchTab('ledger'); closeSidebar(); }" id="nav-ledger" class="sidebar-nav-item" style="text-decoration: none;">
+                    <svg style="width:22px;height:22px;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                    <span>General Ledger</span>
+                </a>
                 @endif
 
-                @if (Auth::user()->hasPermission('view_transactions'))
-                    <a href="{{ route('dashboard') }}?activeTab=ledger" onclick="if (!event.ctrlKey && !event.metaKey && event.button !== 1) { event.preventDefault(); switchTab('ledger'); closeSidebar(); }" id="nav-ledger" class="sidebar-nav-item" style="text-decoration: none;">
-                        <svg style="width:22px;height:22px;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                        </svg>
-                        <span>Buku Besar</span>
-                    </a>
-                @endif
-
+                {{-- ===== ADMIN / OWNER ONLY ===== --}}
                 @if (Auth::user()->role === 'owner')
                     <a href="{{ route('dashboard') }}?activeTab=users" onclick="if (!event.ctrlKey && !event.metaKey && event.button !== 1) { event.preventDefault(); switchTab('users'); closeSidebar(); }" id="nav-users" class="sidebar-nav-item" style="text-decoration: none;">
                         <svg style="width:22px;height:22px;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                         </svg>
-                        <span>User & Roles</span>
+                        <span>User &amp; Roles</span>
                     </a>
                     <a href="{{ route('dashboard') }}?activeTab=settings" onclick="if (!event.ctrlKey && !event.metaKey && event.button !== 1) { event.preventDefault(); switchTab('settings'); closeSidebar(); }" id="nav-settings" class="sidebar-nav-item" style="text-decoration: none;">
                         <svg style="width:22px;height:22px;flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -397,21 +554,21 @@
                             </div>
                         @else
                             <div class="table-wrapper">
+                                @php $offset = Auth::user()->hasPermission('delete_transactions') ? 1 : 0; @endphp
                                 <table class="table">
                                     <thead>
                                         <tr>
                                             @if (Auth::user()->hasPermission('delete_transactions'))
                                                 <th style="width: 40px; text-align: center;"><input type="checkbox" id="checkAllTx" style="cursor: pointer;" onclick="toggleCheckAllTx(this)"></th>
                                             @endif
-                                            <th>No. Bukti</th>
-                                            <th>Tanggal</th>
-                                            <th>Jenis</th>
-                                            <th>Kategori</th>
-                                            <th>Akun Kas/Bank</th>
+                                            <th class="sortable" onclick="sortTransactionsTable({{ 0 + $offset }}, 'string')">No. Bukti</th>
+                                            <th class="sortable" onclick="sortTransactionsTable({{ 1 + $offset }}, 'date')">Tanggal</th>
+                                            <th class="sortable" onclick="sortTransactionsTable({{ 2 + $offset }}, 'string')">Jenis</th>
+                                            <th class="sortable" onclick="sortTransactionsTable({{ 3 + $offset }}, 'string')">Kategori</th>
+                                            <th class="sortable" onclick="sortTransactionsTable({{ 4 + $offset }}, 'string')">Akun Kas/Bank</th>
                                             <th>Keterangan</th>
-                                            <th>Nominal</th>
+                                            <th class="sortable" onclick="sortTransactionsTable({{ 6 + $offset }}, 'number')">Nominal</th>
                                             <th>Bukti Bon</th>
-                                            <th>Petugas</th>
                                             <th>Aksi</th>
                                         </tr>
                                     </thead>
@@ -504,9 +661,6 @@
                                                     </div>
                                                 </td>
                                                 <td>
-                                                    <span style="font-size: 0.85rem; color: var(--text-secondary);">{{ $tx->creator }}</span>
-                                                </td>
-                                                <td>
                                                     <div style="display: flex; gap: 4px;">
                                                         <!-- Reimbursement transfer button -->
                                                         @if ($tx->is_reimbursement && $tx->reimbursement_status === 'pending' && Auth::user()->hasPermission('edit_transactions'))
@@ -576,6 +730,21 @@
                                 </table>
                             </div>
                         @endif
+                        <div class="pagination-bar" id="pagination-bar-transactions">
+                            <div class="pagination-per-page">
+                                <span>Rows per page:</span>
+                                <select id="per-page-transactions" onchange="initPagination('transactions')">
+                                    <option value="5">5</option>
+                                    <option value="10" selected>10</option>
+                                    <option value="25">25</option>
+                                    <option value="50">50</option>
+                                </select>
+                                <span>or</span>
+                                <input type="number" id="custom-per-page-transactions" min="1" placeholder="Custom" onchange="applyCustomPerPage('transactions')" title="Custom rows per page">
+                            </div>
+                            <div class="pagination-info" id="pagination-info-transactions">Showing 1–10 of 0</div>
+                            <div class="pagination-controls" id="pagination-controls-transactions"></div>
+                        </div>
                     </section>
                 </div>
 
@@ -661,21 +830,20 @@
                             <h2>Daftar Advance (Advance Payments)</h2>
                         </div>
                         <div class="table-wrapper">
+                            @php $offset = Auth::user()->hasPermission('delete_settlements') ? 1 : 0; @endphp
                             <table class="table">
                                 <thead>
                                     <tr>
                                         @if (Auth::user()->hasPermission('delete_settlements'))
                                             <th style="width: 40px; text-align: center;"><input type="checkbox" id="checkAllSettlements" style="cursor: pointer;" onclick="toggleCheckAllSettlements(this)"></th>
                                         @endif
-                                        <th>No. Bukti</th>
-                                        <th>Tanggal</th>
-                                        <th>Penerima</th>
-                                        <th>Penginput</th>
-                                        <th>Nominal Advance</th>
-                                        <th>Sumber Kas</th>
+                                        <th class="sortable" onclick="sortSettlementsTable({{ 0 + $offset }}, 'string')">No. Bukti</th>
+                                        <th class="sortable" onclick="sortSettlementsTable({{ 1 + $offset }}, 'date')">Tanggal</th>
+                                        <th class="sortable" onclick="sortSettlementsTable({{ 2 + $offset }}, 'string')">Penerima</th>
+                                        <th class="sortable" onclick="sortSettlementsTable({{ 3 + $offset }}, 'number')">Nominal Advance</th>
                                         <th>Keterangan</th>
-                                        <th>Nominal Bon</th>
-                                        <th>Status</th>
+                                        <th class="sortable" onclick="sortSettlementsTable({{ 5 + $offset }}, 'number')">Nominal Bon</th>
+                                        <th class="sortable" onclick="sortSettlementsTable({{ 6 + $offset }}, 'string')">Status</th>
                                         <th>Bon Fisik</th>
                                         <th>Aksi</th>
                                     </tr>
@@ -691,10 +859,8 @@
                                                 @endif
                                                 <td class="tx-number">{{ $adv->transaction_number }}</td>
                                                 <td>{{ $adv->transaction_date->format('d/m/Y') }}</td>
-                                                <td><span style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);">{{ $adv->recipient_name ?? '-' }}</span></td>
-                                                <td><span style="font-size: 0.85rem; color: var(--text-secondary);">{{ $adv->creator }}</span></td>
+                                                <td><span style="font-weight: 600; color: var(--text-secondary);">{{ $adv->recipient_name ?? '-' }}</span></td>
                                                 <td><span class="amount-out">Rp {{ number_format($adv->amount, 0, ',', '.') }}</span></td>
-                                                <td><span style="font-size: 0.85rem; color: var(--text-secondary);">{{ $adv->payment_source }}</span></td>
                                                 <td style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ $adv->description }}">{{ $adv->description }}</td>
                                                 <td>
                                                     @if ($adv->advance_status === 'settled')
@@ -792,6 +958,21 @@
                                 </tbody>
                             </table>
                         </div>
+                        <div class="pagination-bar" id="pagination-bar-settlements">
+                            <div class="pagination-per-page">
+                                <span>Rows per page:</span>
+                                <select id="per-page-settlements" onchange="initPagination('settlements')">
+                                    <option value="5">5</option>
+                                    <option value="10" selected>10</option>
+                                    <option value="25">25</option>
+                                    <option value="50">50</option>
+                                </select>
+                                <span>or</span>
+                                <input type="number" id="custom-per-page-settlements" min="1" placeholder="Custom" onchange="applyCustomPerPage('settlements')" title="Custom rows per page">
+                            </div>
+                            <div class="pagination-info" id="pagination-info-settlements">Showing 1–10 of 0</div>
+                            <div class="pagination-controls" id="pagination-controls-settlements"></div>
+                        </div>
                     </section>
                     </div> <!-- Close sub-section-settlements -->
 
@@ -844,23 +1025,21 @@
                                 <thead>
                                     <tr>
                                         <th style="width: 40px;"></th>
-                                        <th>No. Bukti</th>
-                                        <th>Tanggal</th>
-                                        <th>Nama Karyawan</th>
-                                        <th>Penginput</th>
-                                        <th>Nominal Pinjaman</th>
-                                        <th>Total Dibayar</th>
-                                        <th>Sisa Pinjaman</th>
-                                        <th>Sumber Dana</th>
+                                        <th class="sortable" onclick="sortLoansTable(1, 'string')">No. Bukti</th>
+                                        <th class="sortable" onclick="sortLoansTable(2, 'date')">Tanggal</th>
+                                        <th class="sortable" onclick="sortLoansTable(3, 'string')">Nama Karyawan</th>
+                                        <th class="sortable" onclick="sortLoansTable(4, 'number')">Nominal Pinjaman</th>
+                                        <th class="sortable" onclick="sortLoansTable(5, 'number')">Total Dibayar</th>
+                                        <th class="sortable" onclick="sortLoansTable(6, 'number')">Sisa Pinjaman</th>
                                         <th>Keterangan</th>
-                                        <th>Status</th>
+                                        <th class="sortable" onclick="sortLoansTable(8, 'string')">Status</th>
                                         <th>Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @if ($loans->isNotEmpty())
                                         @foreach ($loans as $loan)
-                                            <tr>
+                                            <tr class="loan-row" data-loan-id="{{ $loan->id }}">
                                                 <td style="text-align: center;">
                                                     @if (count($loan->repayments) > 0)
                                                         <button onclick="toggleRepaymentsRow({{ $loan->id }}, this)" class="btn-toggle-subtable" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; outline: none; padding: 4px;">
@@ -873,13 +1052,11 @@
                                                 <td class="tx-number">{{ $loan->transaction_number }}</td>
                                                 <td>{{ $loan->transaction_date->format('d/m/Y') }}</td>
                                                 <td style="font-weight: 600; color: var(--text-primary);">{{ $loan->recipient_name }}</td>
-                                                <td>{{ $loan->creator }}</td>
                                                 <td style="font-weight: 600;">Rp {{ number_format($loan->amount, 0, ',', '.') }}</td>
                                                 <td style="color: #34d399;">Rp {{ number_format($loan->loan_repaid_amount, 0, ',', '.') }}</td>
                                                 <td style="font-weight: 600; color: {{ $loan->remaining_amount > 0 ? '#f87171' : 'var(--text-secondary)' }};">
                                                     Rp {{ number_format($loan->remaining_amount, 0, ',', '.') }}
                                                 </td>
-                                                <td>{{ $loan->payment_source }}</td>
                                                 <td>{{ $loan->description }}</td>
                                                 <td>
                                                     @if ($loan->loan_status === 'repaid')
@@ -910,7 +1087,7 @@
                                                                 </svg>
                                                             </button>
                                                         @endif
-
+ 
                                                         @if (Auth::user()->hasPermission('edit_cash_advances'))
                                                             <button 
                                                                 type="button" 
@@ -934,7 +1111,7 @@
                                                                 </svg>
                                                             </button>
                                                         @endif
-
+ 
                                                         @if (Auth::user()->hasPermission('delete_cash_advances'))
                                                             <button 
                                                                 type="button" 
@@ -950,11 +1127,11 @@
                                                     </div>
                                                 </td>
                                             </tr>
-
+ 
                                             @if (count($loan->repayments) > 0)
                                                 <tr id="repayments-row-{{ $loan->id }}" class="repayments-subtable-row" style="display: none; background: rgba(255, 255, 255, 0.02);">
                                                     <td></td>
-                                                    <td colspan="11" style="padding: 12px 24px;">
+                                                    <td colspan="9" style="padding: 12px 24px;">
                                                         <div style="border-left: 3px solid var(--accent-color); padding-left: 16px; margin: 8px 0;">
                                                             <h4 style="margin: 0 0 8px 0; font-size: 0.9rem; color: var(--text-secondary);">Riwayat Angsuran Pelunasan</h4>
                                                             <table class="table" style="font-size: 0.85rem; width: 100%;">
@@ -1006,11 +1183,26 @@
                                         @endforeach
                                     @else
                                         <tr>
-                                            <td colspan="12" style="text-align: center; color: var(--text-muted); padding: 32px 0;">Tidak ada catatan transaksi cash advance.</td>
+                                            <td colspan="10" style="text-align: center; color: var(--text-muted); padding: 32px 0;">Tidak ada catatan transaksi cash advance.</td>
                                         </tr>
                                     @endif
                                 </tbody>
                             </table>
+                        </div>
+                        <div class="pagination-bar" id="pagination-bar-cash-advances">
+                            <div class="pagination-per-page">
+                                <span>Rows per page:</span>
+                                <select id="per-page-cash-advances" onchange="initPagination('cash-advances')">
+                                    <option value="5">5</option>
+                                    <option value="10" selected>10</option>
+                                    <option value="25">25</option>
+                                    <option value="50">50</option>
+                                </select>
+                                <span>or</span>
+                                <input type="number" id="custom-per-page-cash-advances" min="1" placeholder="Custom" onchange="applyCustomPerPage('cash-advances')" title="Custom rows per page">
+                            </div>
+                            <div class="pagination-info" id="pagination-info-cash-advances">Showing 1–10 of 0</div>
+                            <div class="pagination-controls" id="pagination-controls-cash-advances"></div>
                         </div>
                     </section>
                 </div> <!-- Close sub-section-cash-advances -->
@@ -1280,6 +1472,116 @@
                         </section>
                     </div>
                 @endif
+
+                <!-- Section: Employee Master -->
+                <div id="section-employee" class="tab-section" style="display: none;">
+                    <div class="action-filter-bar" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 16px;">
+                        <div style="display: flex; gap: 8px; flex: 1; max-width: 400px;">
+                            <input type="text" id="employeeSearchInput" onkeyup="filterEmployees()" placeholder="Cari Nama / No Karyawan..." class="form-input" style="height: 38px; border-radius: 8px;">
+                        </div>
+                        <button onclick="openEmployeeModal()" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px; height: 38px;">
+                            <span style="font-size: 1.1rem; line-height: 1;">+</span> Tambah Karyawan Baru
+                        </button>
+                    </div>
+
+                    <section class="glass-panel table-card" style="margin-top: 16px;">
+                        <div class="table-wrapper">
+                            <table class="table" id="employeeTable">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 50px;">No.</th>
+                                        <th class="sortable" onclick="sortEmployeeTable(1, 'string')">Empno</th>
+                                        <th class="sortable" onclick="sortEmployeeTable(2, 'string')">Fullname</th>
+                                        <th class="sortable" onclick="sortEmployeeTable(3, 'string')">Division</th>
+                                        <th class="sortable" onclick="sortEmployeeTable(4, 'string')">Employee Stat</th>
+                                        <th class="sortable" onclick="sortEmployeeTable(5, 'date')">Rehired</th>
+                                        <th class="sortable" onclick="sortEmployeeTable(6, 'date')">Start</th>
+                                        <th class="sortable" onclick="sortEmployeeTable(7, 'date')">End</th>
+                                        <th class="sortable" onclick="sortEmployeeTable(8, 'date')">Resign</th>
+                                        <th class="sortable" onclick="sortEmployeeTable(9, 'string')">Status</th>
+                                        <th style="text-align: center; width: 100px;">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @if (isset($employees) && $employees->isNotEmpty())
+                                        @foreach ($employees as $index => $emp)
+                                            <tr class="employee-row" data-search="{{ strtolower($emp->employee_no . ' ' . $emp->fullname) }}">
+                                                <td>{{ $index + 1 }}</td>
+                                                <td style="font-weight: 600; color: var(--color-primary);">{{ $emp->employee_no }}</td>
+                                                <td style="font-weight: 500;">{{ $emp->fullname }}</td>
+                                                <td>{{ $emp->division ?? '-' }}</td>
+                                                <td>
+                                                    @if ($emp->employee_status)
+                                                        <span class="badge" style="background: rgba(255,255,255,0.08); color: var(--text-secondary); border: 1px solid rgba(255,255,255,0.15); font-size: 0.8rem; padding: 2px 8px; border-radius: 4px;">
+                                                            {{ $emp->employee_status }}
+                                                        </span>
+                                                    @else
+                                                        -
+                                                    @endif
+                                                </td>
+                                                <td>{{ $emp->rehired_date ? $emp->rehired_date->format('d-M-Y') : '-' }}</td>
+                                                <td>{{ $emp->start_date ? $emp->start_date->format('d-M-Y') : '-' }}</td>
+                                                <td>{{ $emp->end_date ? $emp->end_date->format('d-M-Y') : '-' }}</td>
+                                                <td>{{ $emp->resign_date ? $emp->resign_date->format('d-M-Y') : '-' }}</td>
+                                                <td>
+                                                    @php
+                                                        $statusColor = 'var(--text-muted)';
+                                                        if (strtolower($emp->status) === 'active') {
+                                                            $statusColor = '#10B981';
+                                                        } elseif (str_contains(strtolower($emp->status), 'move')) {
+                                                            $statusColor = '#3B82F6';
+                                                        } elseif (strtolower($emp->status) === 'resigned') {
+                                                            $statusColor = '#EF4444';
+                                                        }
+                                                    @endphp
+                                                    <span style="font-weight: 600; color: {{ $statusColor }};">
+                                                        {{ $emp->status ?? 'Active' }}
+                                                    </span>
+                                                </td>
+                                                <td style="text-align: center;">
+                                                    <div style="display: inline-flex; gap: 8px;">
+                                                        <button type="button" class="btn-action btn-action-edit" title="Edit" 
+                                                                data-employee="{{ json_encode($emp) }}"
+                                                                onclick="editEmployee(this)">
+                                                            <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                            </svg>
+                                                        </button>
+                                                        <button type="button" class="btn-action btn-action-delete" title="Hapus" 
+                                                                onclick="confirmDeleteEmployee({{ $emp->id }}, '{{ $emp->fullname }}')">
+                                                            <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                            </svg>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    @else
+                                        <tr>
+                                            <td colspan="11" style="text-align: center; color: var(--text-muted); padding: 32px 0;">Tidak ada data karyawan.</td>
+                                        </tr>
+                                    @endif
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="pagination-bar" id="pagination-bar-employee">
+                            <div class="pagination-per-page">
+                                <span>Rows per page:</span>
+                                <select id="per-page-employee" onchange="initPagination('employee')">
+                                    <option value="5">5</option>
+                                    <option value="10" selected>10</option>
+                                    <option value="25">25</option>
+                                    <option value="50">50</option>
+                                </select>
+                                <span>or</span>
+                                <input type="number" id="custom-per-page-employee" min="1" placeholder="Custom" onchange="applyCustomPerPage('employee')" title="Custom rows per page">
+                            </div>
+                            <div class="pagination-info" id="pagination-info-employee">Showing 1–10 of 0</div>
+                            <div class="pagination-controls" id="pagination-controls-employee"></div>
+                        </div>
+                    </section>
+                </div>
             </main>
         </div>
     </div>
@@ -1920,6 +2222,256 @@
         </div>
     </div>
 
+    <!-- Employee Modal -->
+    <div id="employeeModal" class="modal-overlay">
+        <div class="modal-card glass-panel" style="max-width: 900px; width: 95%;">
+            <div class="modal-header">
+                <h3 id="employeeModalTitle">Tambah Data Karyawan</h3>
+                <button onclick="closeEmployeeModal()" class="modal-close">&times;</button>
+            </div>
+            <form id="employeeForm" action="{{ route('web.employees.store') }}" method="POST">
+                @csrf
+                <input type="hidden" name="_method" id="employeeFormMethod" value="POST">
+                
+                <div class="modal-body" style="max-height: 70vh; overflow-y: auto; padding-right: 8px;">
+                    
+                    <!-- Section 1: Personal Info -->
+                    <div style="border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; margin-bottom: 16px;">
+                        <h4 style="margin: 0; color: var(--color-primary); font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em;">1. Informasi Pribadi</h4>
+                    </div>
+                    
+                    <div class="form-grid-3">
+                        <div class="form-group">
+                            <label class="form-label">Employee No</label>
+                            <input type="text" id="emp_employee_no" class="form-input" placeholder="[Otomatis BSxxxx]" disabled style="background: rgba(255,255,255,0.05); color: var(--text-muted);">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">First Name <span style="color: #f87171;">*</span></label>
+                            <input type="text" name="first_name" id="emp_first_name" class="form-input" required placeholder="Nama Depan">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Last Name</label>
+                            <input type="text" name="last_name" id="emp_last_name" class="form-input" placeholder="Nama Belakang">
+                        </div>
+                    </div>
+
+                    <div class="form-grid-3" style="margin-top: 12px;">
+                        <div class="form-group">
+                            <label class="form-label">Tanggal Lahir</label>
+                            <input type="date" name="date_of_birth" id="emp_date_of_birth" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Tempat Lahir</label>
+                            <input type="text" name="place_of_birth" id="emp_place_of_birth" class="form-input" placeholder="Kota Lahir">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Jenis Kelamin</label>
+                            <select name="sex" id="emp_sex" class="form-input form-select">
+                                <option value="">-- Pilih --</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-grid-3" style="margin-top: 12px;">
+                        <div class="form-group">
+                            <label class="form-label">Agama (Religion)</label>
+                            <select name="religion" id="emp_religion" class="form-input form-select">
+                                <option value="">-- Pilih --</option>
+                                <option value="Islam">Islam</option>
+                                <option value="Kristen Protestan">Kristen Protestan</option>
+                                <option value="Katolik">Katolik</option>
+                                <option value="Hindu">Hindu</option>
+                                <option value="Buddha">Buddha</option>
+                                <option value="Khonghucu">Khonghucu</option>
+                                <option value="Lainnya">Lainnya</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Status Pernikahan</label>
+                            <select name="marital_status" id="emp_marital_status" class="form-input form-select">
+                                <option value="">-- Pilih --</option>
+                                <option value="Single">Single</option>
+                                <option value="Married">Married</option>
+                                <option value="Divorced">Divorced</option>
+                                <option value="Widowed">Widowed</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Kewarganegaraan</label>
+                            <input type="text" name="nationality" id="emp_nationality" class="form-input" value="Indonesian">
+                        </div>
+                    </div>
+
+                    <div class="form-grid-2" style="margin-top: 12px;">
+                        <div class="form-group">
+                            <label class="form-label">Email Address</label>
+                            <input type="email" name="email" id="emp_email" class="form-input" placeholder="email@domain.com">
+                        </div>
+                    </div>
+
+                    <!-- Section 2: Address & Contact -->
+                    <div style="border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; margin-bottom: 16px; margin-top: 24px;">
+                        <h4 style="margin: 0; color: var(--color-primary); font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em;">2. Kontak & Alamat</h4>
+                    </div>
+
+                    <div class="form-grid-2">
+                        <div class="form-group">
+                            <label class="form-label">Alamat Tetap (Permanent Address)</label>
+                            <textarea name="permanent_address" id="emp_permanent_address" class="form-input" style="height: 60px; resize: vertical;" placeholder="Alamat KTP"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Alamat Surat (Correspondence Address)</label>
+                            <textarea name="correspondence_address" id="emp_correspondence_address" class="form-input" style="height: 60px; resize: vertical;" placeholder="Alamat Surat Menyurat"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="form-grid-2" style="margin-top: 12px;">
+                        <div class="form-group">
+                            <label class="form-label">Kota Alamat Tetap</label>
+                            <input type="text" name="permanent_city" id="emp_permanent_city" class="form-input" placeholder="Kota KTP">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Kota Alamat Surat</label>
+                            <input type="text" name="correspondence_city" id="emp_correspondence_city" class="form-input" placeholder="Kota Surat">
+                        </div>
+                    </div>
+
+                    <div class="form-grid-2" style="margin-top: 12px;">
+                        <div class="form-group">
+                            <label class="form-label">No. Telepon Rumah</label>
+                            <input type="text" name="telp_no" id="emp_telp_no" class="form-input" placeholder="Contoh: 021-xxxx">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">No. Handphone</label>
+                            <input type="text" name="handphone" id="emp_handphone" class="form-input" placeholder="Contoh: 0812-xxxx">
+                        </div>
+                    </div>
+
+                    <!-- Section 3: Identifiers & Tax -->
+                    <div style="border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; margin-bottom: 16px; margin-top: 24px;">
+                        <h4 style="margin: 0; color: var(--color-primary); font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em;">3. Identitas & Pajak</h4>
+                    </div>
+
+                    <div class="form-grid-3">
+                        <div class="form-group">
+                            <label class="form-label">No. KTP / NIK</label>
+                            <input type="text" name="ktp_no" id="emp_ktp_no" class="form-input" placeholder="16 digit NIK">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">No. Passport</label>
+                            <input type="text" name="passport_no" id="emp_passport_no" class="form-input" placeholder="Nomor Passport">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">No. NPWP</label>
+                            <input type="text" name="npwp_no" id="emp_npwp_no" class="form-input" placeholder="Nomor NPWP">
+                        </div>
+                    </div>
+
+                    <div class="form-grid-3" style="margin-top: 12px;">
+                        <div class="form-group">
+                            <label class="form-label">No. Jamsostek / BPJS TK</label>
+                            <input type="text" name="jamsostek_no" id="emp_jamsostek_no" class="form-input" placeholder="Nomor Jamsostek">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Status Pajak (Tax Status)</label>
+                            <select name="tax_status" id="emp_tax_status" class="form-input form-select">
+                                <option value="">-- Pilih Status Pajak --</option>
+                                <option value="TK/0">TK/0 (Belum Kawin, 0 Tanggungan)</option>
+                                <option value="TK/1">TK/1 (Belum Kawin, 1 Tanggungan)</option>
+                                <option value="TK/2">TK/2 (Belum Kawin, 2 Tanggungan)</option>
+                                <option value="TK/3">TK/3 (Belum Kawin, 3 Tanggungan)</option>
+                                <option value="K/0">K/0 (Kawin, 0 Tanggungan)</option>
+                                <option value="K/1">K/1 (Kawin, 1 Tanggungan)</option>
+                                <option value="K/2">K/2 (Kawin, 2 Tanggungan)</option>
+                                <option value="K/3">K/3 (Kawin, 3 Tanggungan)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Section 4: Professional Status -->
+                    <div style="border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; margin-bottom: 16px; margin-top: 24px;">
+                        <h4 style="margin: 0; color: var(--color-primary); font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em;">4. Status Pekerjaan & Karir</h4>
+                    </div>
+
+                    <div class="form-grid-3">
+                        <div class="form-group">
+                            <label class="form-label">HTI ID</label>
+                            <input type="text" name="hti_id" id="emp_hti_id" class="form-input" placeholder="Contoh: 84249045">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Divisi (Division)</label>
+                            <input type="text" name="division" id="emp_division" class="form-input" placeholder="Contoh: Technical Service">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Status Karyawan</label>
+                            <select name="employee_status" id="emp_employee_status" class="form-input form-select">
+                                <option value="">-- Pilih Status --</option>
+                                <option value="Permanent">Permanent</option>
+                                <option value="Contract">Contract</option>
+                                <option value="Project Based">Project Based</option>
+                                <option value="Freelance">Freelance</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-grid-3" style="margin-top: 12px;">
+                        <div class="form-group">
+                            <label class="form-label">Tanggal Masuk (Start)</label>
+                            <input type="date" name="start_date" id="emp_start_date" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Tanggal Kontrak Selesai (End)</label>
+                            <input type="date" name="end_date" id="emp_end_date" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Status Sistem (Status)</label>
+                            <select name="status" id="emp_status" class="form-input form-select">
+                                <option value="Active">Active</option>
+                                <option value="Move To Elabram">Move To Elabram</option>
+                                <option value="Move To Hexa">Move To Hexa</option>
+                                <option value="Move To Persolkelly">Move To Persolkelly</option>
+                                <option value="Resigned">Resigned</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-grid-3" style="margin-top: 12px;">
+                        <div class="form-group">
+                            <label class="form-label">Tanggal Masuk Kembali (Rehired)</label>
+                            <input type="date" name="rehired_date" id="emp_rehired_date" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Tanggal Resign</label>
+                            <input type="date" name="resign_date" id="emp_resign_date" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Temp.Ext.</label>
+                            <input type="text" name="temp_ext" id="emp_temp_ext" class="form-input" placeholder="Perpanjangan Sementara">
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 16px; display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" name="is_freelance" id="emp_is_freelance" value="1" style="width: 18px; height: 18px; cursor: pointer;">
+                        <label for="emp_is_freelance" style="cursor: pointer; font-size: 0.9rem; user-select: none;">Apakah Karyawan Lepas (Freelance)?</label>
+                    </div>
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" onclick="closeEmployeeModal()" class="btn btn-secondary">Batal</button>
+                    <button type="submit" class="btn btn-primary" id="employeeSubmitBtn">Simpan Karyawan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Hidden Employee Delete Form -->
+    <form id="deleteEmployeeForm" action="" method="POST" style="display: none;">
+        @csrf
+        @method('DELETE')
+    </form>
+
     <!-- Hidden form for deleting single loan and repayments -->
     <form id="deleteLoanForm" action="" method="POST" style="display: none;">
         @csrf
@@ -1982,7 +2534,7 @@
                 targetSubTab = 'cash-advances';
             }
 
-            const tabs = ['dashboard', 'transactions', 'ledger', 'users', 'settings'];
+            const tabs = ['dashboard', 'transactions', 'ledger', 'users', 'settings', 'employee'];
             tabs.forEach(t => {
                 const link = document.getElementById('nav-' + t);
                 const section = document.getElementById('section-' + t);
@@ -2005,10 +2557,12 @@
             // Update content title dynamically
             const titleEl = document.getElementById('content-title');
             if (titleEl) {
-                if (tabName === 'dashboard') titleEl.innerText = 'Dashboard Keuangan';
-                else if (tabName === 'ledger') titleEl.innerText = 'Buku Besar / General Ledger';
-                else if (tabName === 'users') titleEl.innerText = 'User & Hak Akses';
-                else if (tabName === 'settings') titleEl.innerText = 'Pengaturan (COA)';
+                if (tabName === 'dashboard') titleEl.innerText = 'Dashboard';
+                else if (tabName === 'ledger') titleEl.innerText = 'General Ledger';
+                else if (tabName === 'users') titleEl.innerText = 'Users & Roles';
+                else if (tabName === 'settings') titleEl.innerText = 'Settings (COA)';
+                else if (tabName === 'employee') titleEl.innerText = 'Employees';
+                else if (tabName === 'transactions') titleEl.innerText = 'Transactions';
             }
             
             // Switch to correct sub-tab if in transactions section
@@ -3038,8 +3592,341 @@
 
         // Close on Escape key
         document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') closeSidebar();
+            if (e.key === 'Escape') {
+                closeSidebar();
+                closeEmployeeModal();
+            }
         });
+
+        // ── Employee Management Logic ──
+        function openEmployeeModal() {
+            document.getElementById('employeeModalTitle').innerText = 'Tambah Data Karyawan';
+            document.getElementById('employeeFormMethod').value = 'POST';
+            document.getElementById('employeeForm').action = "{{ route('web.employees.store') }}";
+            document.getElementById('employeeSubmitBtn').innerText = 'Simpan Karyawan';
+            
+            // Clear all fields
+            const form = document.getElementById('employeeForm');
+            form.reset();
+            document.getElementById('emp_employee_no').value = '';
+            document.getElementById('emp_is_freelance').checked = false;
+            
+            document.getElementById('employeeModal').classList.add('active');
+        }
+
+        function closeEmployeeModal() {
+            document.getElementById('employeeModal').classList.remove('active');
+        }
+
+        function editEmployee(button) {
+            const empData = JSON.parse(button.getAttribute('data-employee'));
+            
+            document.getElementById('employeeModalTitle').innerText = 'Edit Data Karyawan: ' + empData.fullname;
+            document.getElementById('employeeFormMethod').value = 'PUT';
+            document.getElementById('employeeForm').action = "/employees/" + empData.id;
+            document.getElementById('employeeSubmitBtn').innerText = 'Simpan Perubahan';
+
+            // Fill all fields
+            document.getElementById('emp_employee_no').value = empData.employee_no || '';
+            document.getElementById('emp_first_name').value = empData.first_name || '';
+            document.getElementById('emp_last_name').value = empData.last_name || '';
+            document.getElementById('emp_place_of_birth').value = empData.place_of_birth || '';
+            document.getElementById('emp_sex').value = empData.sex || '';
+            document.getElementById('emp_religion').value = empData.religion || '';
+            document.getElementById('emp_marital_status').value = empData.marital_status || '';
+            document.getElementById('emp_nationality').value = empData.nationality || 'Indonesian';
+            document.getElementById('emp_email').value = empData.email || '';
+            
+            document.getElementById('emp_permanent_address').value = empData.permanent_address || '';
+            document.getElementById('emp_permanent_city').value = empData.permanent_city || '';
+            document.getElementById('emp_correspondence_address').value = empData.correspondence_address || '';
+            document.getElementById('emp_correspondence_city').value = empData.correspondence_city || '';
+            document.getElementById('emp_telp_no').value = empData.telp_no || '';
+            document.getElementById('emp_handphone').value = empData.handphone || '';
+            
+            document.getElementById('emp_ktp_no').value = empData.ktp_no || '';
+            document.getElementById('emp_passport_no').value = empData.passport_no || '';
+            document.getElementById('emp_npwp_no').value = empData.npwp_no || '';
+            document.getElementById('emp_jamsostek_no').value = empData.jamsostek_no || '';
+            document.getElementById('emp_tax_status').value = empData.tax_status || '';
+            
+            document.getElementById('emp_hti_id').value = empData.hti_id || '';
+            document.getElementById('emp_division').value = empData.division || '';
+            document.getElementById('emp_employee_status').value = empData.employee_status || '';
+            document.getElementById('emp_status').value = empData.status || 'Active';
+            document.getElementById('emp_temp_ext').value = empData.temp_ext || '';
+            
+            // Format dates (YYYY-MM-DD)
+            const formatDate = (dateStr) => {
+                if (!dateStr) return '';
+                return dateStr.substring(0, 10);
+            };
+
+            document.getElementById('emp_date_of_birth').value = formatDate(empData.date_of_birth);
+            document.getElementById('emp_start_date').value = formatDate(empData.start_date);
+            document.getElementById('emp_end_date').value = formatDate(empData.end_date);
+            document.getElementById('emp_rehired_date').value = formatDate(empData.rehired_date);
+            document.getElementById('emp_resign_date').value = formatDate(empData.resign_date);
+
+            document.getElementById('emp_is_freelance').checked = empData.is_freelance == 1 || empData.is_freelance == true;
+
+            document.getElementById('employeeModal').classList.add('active');
+        }
+
+        function confirmDeleteEmployee(id, name) {
+            if (confirm('Apakah Anda yakin ingin menghapus data karyawan "' + name + '"? Tindakan ini tidak dapat dibatalkan.')) {
+                const form = document.getElementById('deleteEmployeeForm');
+                form.action = "/employees/" + id;
+                form.submit();
+            }
+        }
+
+        function filterEmployees() {
+            const query = document.getElementById('employeeSearchInput').value.toLowerCase();
+            const rows = document.querySelectorAll('.employee-row');
+            
+            rows.forEach(row => {
+                const searchData = row.getAttribute('data-search');
+                if (searchData && searchData.includes(query)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+
+        let currentSortCol = -1;
+        let currentSortAsc = true;
+
+        function sortEmployeeTable(colIndex, type = 'string') {
+            const table = document.getElementById('employeeTable');
+            const tbody = table.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr.employee-row'));
+            
+            if (currentSortCol === colIndex) {
+                currentSortAsc = !currentSortAsc;
+            } else {
+                currentSortCol = colIndex;
+                currentSortAsc = true;
+            }
+
+            const headers = table.querySelectorAll('thead th.sortable');
+            headers.forEach(h => {
+                h.classList.remove('asc', 'desc');
+            });
+
+            const activeHeader = table.querySelector(`thead th:nth-child(${colIndex + 1})`);
+            if (activeHeader) {
+                activeHeader.classList.add(currentSortAsc ? 'asc' : 'desc');
+            }
+
+            rows.sort((a, b) => {
+                let cellA = a.cells[colIndex].textContent.trim();
+                let cellB = b.cells[colIndex].textContent.trim();
+
+                if (type === 'number') {
+                    const numA = parseFloat(cellA.replace(/[^\d.-]/g, '')) || 0;
+                    const numB = parseFloat(cellB.replace(/[^\d.-]/g, '')) || 0;
+                    return currentSortAsc ? numA - numB : numB - numA;
+                } else if (type === 'date') {
+                    const parseDate = (str) => {
+                        if (str === '-') return new Date(0);
+                        // Standard formats like "12-Aug-1995"
+                        return new Date(str);
+                    };
+                    const dateA = parseDate(cellA);
+                    const dateB = parseDate(cellB);
+                    return currentSortAsc ? dateA - dateB : dateB - dateA;
+                } else {
+                    return currentSortAsc 
+                        ? cellA.localeCompare(cellB, undefined, {numeric: true, sensitivity: 'base'})
+                        : cellB.localeCompare(cellA, undefined, {numeric: true, sensitivity: 'base'});
+                }
+            });
+
+            rows.forEach(row => tbody.appendChild(row));
+            
+            // Re-index number column
+            rows.forEach((row, i) => {
+                row.cells[0].textContent = i + 1;
+            });
+        }
+
+        let txSortCol = -1;
+        let txSortAsc = true;
+
+        function sortTransactionsTable(colIndex, type = 'string') {
+            const table = document.querySelector('#sub-section-transactions table.table');
+            if (!table) return;
+            const tbody = table.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            
+            if (txSortCol === colIndex) {
+                txSortAsc = !txSortAsc;
+            } else {
+                txSortCol = colIndex;
+                txSortAsc = true;
+            }
+
+            const headers = table.querySelectorAll('thead th.sortable');
+            headers.forEach(h => {
+                h.classList.remove('asc', 'desc');
+            });
+
+            const headersAll = table.querySelectorAll('thead th');
+            const activeHeader = headersAll[colIndex];
+            if (activeHeader && activeHeader.classList.contains('sortable')) {
+                activeHeader.classList.add(txSortAsc ? 'asc' : 'desc');
+            }
+
+            rows.sort((a, b) => {
+                let cellA = a.cells[colIndex].textContent.trim();
+                let cellB = b.cells[colIndex].textContent.trim();
+
+                if (type === 'number') {
+                    const cleanNum = (str) => {
+                        const isNegative = str.includes('-');
+                        const num = parseFloat(str.replace(/[^\d]/g, '')) || 0;
+                        return isNegative ? -num : num;
+                    };
+                    return txSortAsc ? cleanNum(cellA) - cleanNum(cellB) : cleanNum(cellB) - cleanNum(cellA);
+                } else if (type === 'date') {
+                    const parseDate = (str) => {
+                        const parts = str.split('/');
+                        if (parts.length === 3) {
+                            return new Date(parts[2], parts[1] - 1, parts[0]);
+                        }
+                        return new Date(0);
+                    };
+                    return txSortAsc ? parseDate(cellA) - parseDate(cellB) : parseDate(cellB) - parseDate(cellA);
+                } else {
+                    return txSortAsc 
+                        ? cellA.localeCompare(cellB, undefined, {numeric: true, sensitivity: 'base'})
+                        : cellB.localeCompare(cellA, undefined, {numeric: true, sensitivity: 'base'});
+                }
+            });
+
+            rows.forEach(row => tbody.appendChild(row));
+        }
+
+        let settlementsSortCol = -1;
+        let settlementsSortAsc = true;
+
+        function sortSettlementsTable(colIndex, type = 'string') {
+            const table = document.querySelector('#sub-section-settlements table.table');
+            if (!table) return;
+            const tbody = table.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            
+            if (settlementsSortCol === colIndex) {
+                settlementsSortAsc = !settlementsSortAsc;
+            } else {
+                settlementsSortCol = colIndex;
+                settlementsSortAsc = true;
+            }
+
+            const headers = table.querySelectorAll('thead th.sortable');
+            headers.forEach(h => {
+                h.classList.remove('asc', 'desc');
+            });
+
+            const headersAll = table.querySelectorAll('thead th');
+            const activeHeader = headersAll[colIndex];
+            if (activeHeader && activeHeader.classList.contains('sortable')) {
+                activeHeader.classList.add(settlementsSortAsc ? 'asc' : 'desc');
+            }
+
+            rows.sort((a, b) => {
+                let cellA = a.cells[colIndex].textContent.trim();
+                let cellB = b.cells[colIndex].textContent.trim();
+
+                if (type === 'number') {
+                    const cleanNum = (str) => {
+                        return parseFloat(str.replace(/[^\d]/g, '')) || 0;
+                    };
+                    return settlementsSortAsc ? cleanNum(cellA) - cleanNum(cellB) : cleanNum(cellB) - cleanNum(cellA);
+                } else if (type === 'date') {
+                    const parseDate = (str) => {
+                        const parts = str.split('/');
+                        if (parts.length === 3) {
+                            return new Date(parts[2], parts[1] - 1, parts[0]);
+                        }
+                        return new Date(0);
+                    };
+                    return settlementsSortAsc ? parseDate(cellA) - parseDate(cellB) : parseDate(cellB) - parseDate(cellA);
+                } else {
+                    return settlementsSortAsc 
+                        ? cellA.localeCompare(cellB, undefined, {numeric: true, sensitivity: 'base'})
+                        : cellB.localeCompare(cellA, undefined, {numeric: true, sensitivity: 'base'});
+                }
+            });
+
+            rows.forEach(row => tbody.appendChild(row));
+        }
+
+        let loansSortCol = -1;
+        let loansSortAsc = true;
+
+        function sortLoansTable(colIndex, type = 'string') {
+            const table = document.querySelector('#sub-section-cash-advances table.table');
+            if (!table) return;
+            const tbody = table.querySelector('tbody');
+            const loanRows = Array.from(tbody.querySelectorAll('tr.loan-row'));
+            
+            if (loansSortCol === colIndex) {
+                loansSortAsc = !loansSortAsc;
+            } else {
+                loansSortCol = colIndex;
+                loansSortAsc = true;
+            }
+
+            const headers = table.querySelectorAll('thead th.sortable');
+            headers.forEach(h => {
+                h.classList.remove('asc', 'desc');
+            });
+
+            const headersAll = table.querySelectorAll('thead th');
+            const activeHeader = headersAll[colIndex];
+            if (activeHeader && activeHeader.classList.contains('sortable')) {
+                activeHeader.classList.add(loansSortAsc ? 'asc' : 'desc');
+            }
+
+            loanRows.sort((a, b) => {
+                let cellA = a.cells[colIndex].textContent.trim();
+                let cellB = b.cells[colIndex].textContent.trim();
+
+                if (type === 'number') {
+                    const cleanNum = (str) => {
+                        return parseFloat(str.replace(/[^\d]/g, '')) || 0;
+                    };
+                    return loansSortAsc ? cleanNum(cellA) - cleanNum(cellB) : cleanNum(cellB) - cleanNum(cellA);
+                } else if (type === 'date') {
+                    const parseDate = (str) => {
+                        const parts = str.split('/');
+                        if (parts.length === 3) {
+                            return new Date(parts[2], parts[1] - 1, parts[0]);
+                        }
+                        return new Date(0);
+                    };
+                    return loansSortAsc ? parseDate(cellA) - parseDate(cellB) : parseDate(cellB) - parseDate(cellA);
+                } else {
+                    return loansSortAsc 
+                        ? cellA.localeCompare(cellB, undefined, {numeric: true, sensitivity: 'base'})
+                        : cellB.localeCompare(cellA, undefined, {numeric: true, sensitivity: 'base'});
+                }
+            });
+
+            loanRows.forEach(row => {
+                tbody.appendChild(row);
+                const loanIdAttr = row.getAttribute('data-loan-id');
+                if (loanIdAttr) {
+                    const repaymentRow = document.getElementById('repayments-row-' + loanIdAttr);
+                    if (repaymentRow) {
+                        tbody.appendChild(repaymentRow);
+                    }
+                }
+            });
+        }
 
         // Close modal when clicking outside card
         window.onclick = function(event) {
@@ -3070,7 +3957,264 @@
             if (event.target === document.getElementById('editLoanModal')) {
                 closeEditLoanModal();
             }
+            if (event.target === document.getElementById('employeeModal')) {
+                closeEmployeeModal();
+            }
         }
+
+        // ===== PAGINATION ENGINE =====
+        // Config map: tableId -> { rowSelector, tbodySelector }
+        const PAGINATION_CONFIG = {
+            'employee': {
+                tbodySelector: '#employeeTable tbody',
+                rowSelector: 'tr.employee-row',
+                allRowsSelector: 'tr.employee-row',
+            },
+            'transactions': {
+                tbodySelector: '#sub-section-transactions table.table tbody',
+                rowSelector: 'tr',
+                allRowsSelector: 'tr',
+            },
+            'settlements': {
+                tbodySelector: '#sub-section-settlements table.table tbody',
+                rowSelector: 'tr',
+                allRowsSelector: 'tr',
+            },
+            'cash-advances': {
+                tbodySelector: '#sub-section-cash-advances table.table tbody',
+                rowSelector: 'tr.loan-row',
+                allRowsSelector: 'tr',
+            },
+        };
+
+        const paginationState = {};
+
+        function initPagination(tableKey) {
+            const cfg = PAGINATION_CONFIG[tableKey];
+            if (!cfg) return;
+
+            const tbody = document.querySelector(cfg.tbodySelector);
+            if (!tbody) return;
+
+            // For cash-advances, only count loan-rows (ignore repayment sub-rows)
+            const allRows = Array.from(tbody.querySelectorAll(cfg.rowSelector))
+                .filter(r => r.style.display !== 'none' || true); // include hidden for pagination total count
+
+            // Gather visible rows (respecting search filter)
+            const visibleRows = Array.from(tbody.querySelectorAll(cfg.rowSelector))
+                .filter(r => r.style.display !== 'none');
+
+            const perPage = getPerPage(tableKey);
+            const currentPage = (paginationState[tableKey] && paginationState[tableKey].page) || 1;
+            const totalRows = visibleRows.length;
+            const totalPages = Math.max(1, Math.ceil(totalRows / perPage));
+            const safePage = Math.min(currentPage, totalPages);
+
+            paginationState[tableKey] = { page: safePage, perPage };
+
+            goToPage(tableKey, safePage);
+        }
+
+        function goToPage(tableKey, page) {
+            const cfg = PAGINATION_CONFIG[tableKey];
+            if (!cfg) return;
+
+            const tbody = document.querySelector(cfg.tbodySelector);
+            if (!tbody) return;
+
+            const perPage = getPerPage(tableKey);
+
+            // For cash-advances handle main rows + paired repayment sub-rows
+            const isCashAdvances = tableKey === 'cash-advances';
+
+            let allMainRows;
+            if (isCashAdvances) {
+                allMainRows = Array.from(tbody.querySelectorAll('tr.loan-row'));
+            } else {
+                allMainRows = Array.from(tbody.querySelectorAll(cfg.rowSelector));
+            }
+
+            // Respect search filter
+            const visibleMainRows = allMainRows.filter(r => r.style.display !== 'none' || r.getAttribute('data-search-hidden') !== 'true');
+
+            const totalRows = visibleMainRows.length;
+            const totalPages = Math.max(1, Math.ceil(totalRows / perPage));
+            page = Math.max(1, Math.min(page, totalPages));
+
+            paginationState[tableKey] = { ...(paginationState[tableKey] || {}), page, perPage };
+
+            const start = (page - 1) * perPage;
+            const end = start + perPage;
+
+            // Show/hide rows
+            if (isCashAdvances) {
+                // Hide all first
+                Array.from(tbody.querySelectorAll('tr')).forEach(r => {
+                    if (!r.classList.contains('loan-row')) {
+                        // sub-rows: hide initially, show if parent is shown
+                    }
+                });
+                visibleMainRows.forEach((row, i) => {
+                    const show = i >= start && i < end;
+                    row.style.display = show ? '' : 'none';
+                    // Toggle paired repayments sub-row
+                    const loanId = row.getAttribute('data-loan-id');
+                    if (loanId) {
+                        const repRow = document.getElementById('repayments-row-' + loanId);
+                        if (repRow) {
+                            if (!show) repRow.style.display = 'none';
+                            // if show, preserve the toggle state (open/closed)
+                        }
+                    }
+                });
+            } else {
+                visibleMainRows.forEach((row, i) => {
+                    row.style.display = (i >= start && i < end) ? '' : 'none';
+                });
+            }
+
+            // Update info
+            const infoEl = document.getElementById('pagination-info-' + tableKey);
+            if (infoEl) {
+                const from = totalRows === 0 ? 0 : start + 1;
+                const to = Math.min(end, totalRows);
+                infoEl.textContent = `Showing ${from}–${to} of ${totalRows}`;
+            }
+
+            // Render page buttons
+            renderPageButtons(tableKey, page, totalPages);
+        }
+
+        function renderPageButtons(tableKey, currentPage, totalPages) {
+            const container = document.getElementById('pagination-controls-' + tableKey);
+            if (!container) return;
+            container.innerHTML = '';
+
+            const btn = (label, page, disabled = false, active = false) => {
+                const b = document.createElement('button');
+                b.className = 'pagination-btn' + (active ? ' active' : '');
+                b.innerHTML = label;
+                b.disabled = disabled;
+                if (!disabled) b.onclick = () => goToPage(tableKey, page);
+                return b;
+            };
+
+            // Prev
+            container.appendChild(btn('&#8592;', currentPage - 1, currentPage === 1));
+
+            // Page numbers with ellipsis
+            const pages = [];
+            if (totalPages <= 7) {
+                for (let i = 1; i <= totalPages; i++) pages.push(i);
+            } else {
+                pages.push(1);
+                if (currentPage > 3) pages.push('...');
+                for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) pages.push(i);
+                if (currentPage < totalPages - 2) pages.push('...');
+                pages.push(totalPages);
+            }
+
+            pages.forEach(p => {
+                if (p === '...') {
+                    const span = document.createElement('span');
+                    span.className = 'pagination-ellipsis';
+                    span.textContent = '…';
+                    container.appendChild(span);
+                } else {
+                    container.appendChild(btn(p, p, false, p === currentPage));
+                }
+            });
+
+            // Next
+            container.appendChild(btn('&#8594;', currentPage + 1, currentPage === totalPages));
+        }
+
+        function applyCustomPerPage(tableKey) {
+            const input = document.getElementById('custom-per-page-' + tableKey);
+            const val = parseInt(input.value);
+            if (val && val > 0) {
+                // Override select value
+                const sel = document.getElementById('per-page-' + tableKey);
+                if (sel) {
+                    // Set to a value that matches, or just override
+                    sel.value = '';
+                }
+                paginationState[tableKey] = { ...(paginationState[tableKey] || {}), perPage: val };
+                // Temporarily override getPerPage by patching the select
+                const originalGetPerPage = sel ? sel.value : '10';
+                // Use a data attribute trick
+                if (sel) sel.setAttribute('data-custom', val);
+                goToPage(tableKey, 1);
+            }
+        }
+
+        function getPerPage(tableKey) {
+            const sel = document.getElementById('per-page-' + tableKey);
+            const custom = sel ? sel.getAttribute('data-custom') : null;
+            if (custom && parseInt(custom) > 0) return parseInt(custom);
+            return sel ? parseInt(sel.value) || 10 : 10;
+        }
+
+        // ===== AUTO-INIT ON PAGE LOAD =====
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize all tables
+            ['employee', 'transactions', 'settlements', 'cash-advances'].forEach(key => {
+                initPagination(key);
+            });
+        });
+
+        // Re-init pagination after sort (hook into sort completion)
+        const _wrapSort = (origFn, tableKey) => {
+            return function() {
+                origFn.apply(this, arguments);
+                // Reset to page 1 after sort
+                if (paginationState[tableKey]) paginationState[tableKey].page = 1;
+                goToPage(tableKey, 1);
+            };
+        };
+
+        // Wrap sort functions to re-paginate after sort
+        if (typeof sortEmployeeTable === 'function') {
+            const _orig = sortEmployeeTable;
+            sortEmployeeTable = _wrapSort(_orig, 'employee');
+        }
+        if (typeof sortTransactionsTable === 'function') {
+            const _orig = sortTransactionsTable;
+            sortTransactionsTable = _wrapSort(_orig, 'transactions');
+        }
+        if (typeof sortSettlementsTable === 'function') {
+            const _orig = sortSettlementsTable;
+            sortSettlementsTable = _wrapSort(_orig, 'settlements');
+        }
+        if (typeof sortLoansTable === 'function') {
+            const _orig = sortLoansTable;
+            sortLoansTable = _wrapSort(_orig, 'cash-advances');
+        }
+
+        // Re-init when switching tabs/subtabs
+        const _origSwitchTab = switchTab;
+        switchTab = function(tabName, targetSubTab) {
+            _origSwitchTab(tabName, targetSubTab);
+            setTimeout(() => {
+                if (tabName === 'employee') initPagination('employee');
+                if (tabName === 'transactions') {
+                    initPagination('transactions');
+                    initPagination('settlements');
+                    initPagination('cash-advances');
+                }
+            }, 50);
+        };
+
+        const _origSwitchSubTab = switchSubTab;
+        switchSubTab = function(subTabName) {
+            _origSwitchSubTab(subTabName);
+            setTimeout(() => {
+                if (subTabName === 'transactions') initPagination('transactions');
+                if (subTabName === 'settlements') initPagination('settlements');
+                if (subTabName === 'cash-advances') initPagination('cash-advances');
+            }, 50);
+        };
+
     </script>
 </body>
 </html>
