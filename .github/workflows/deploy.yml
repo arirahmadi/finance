@@ -22,80 +22,132 @@ jobs:
     - name: Install Composer Dependencies
       run: composer install --no-dev --optimize-autoloader
 
-    - name: Prepare Zip and Unzip Script
+    - name: Prepare Zip, Unzip Script, and Migrate Runner
       run: |
-        # Create unzip.php in root directory
-        cat << 'EOF' > unzip.php
-        <?php
-        $zipFile = __DIR__ . '/project.zip';
-        if (file_exists($zipFile)) {
-            $zip = new ZipArchive;
-            if ($zip->open($zipFile) === TRUE) {
-                $zip->extractTo(__DIR__);
-                $zip->close();
-                echo 'SUCCESS';
-                unlink($zipFile);
-            } else {
-                echo 'ERROR: Failed to open zip';
-            }
-        } else {
-            echo 'ERROR: Zip file not found';
-        }
-        @unlink(__FILE__);
-        if (file_exists(__DIR__ . '/public/unzip.php')) {
-            @unlink(__DIR__ . '/public/unzip.php');
-        }
-        EOF
+        # ── unzip.php (project root) ──────────────────────────────────
+        cat << 'PHPEOF' > unzip.php
+<?php
+$zipFile = __DIR__ . '/project.zip';
+if (file_exists($zipFile)) {
+    $zip = new ZipArchive;
+    if ($zip->open($zipFile) === TRUE) {
+        $zip->extractTo(__DIR__);
+        $zip->close();
+        echo 'SUCCESS';
+        unlink($zipFile);
+    } else {
+        echo 'ERROR: Failed to open zip';
+    }
+} else {
+    echo 'ERROR: Zip file not found';
+}
+@unlink(__FILE__);
+if (file_exists(__DIR__ . '/public/unzip.php')) {
+    @unlink(__DIR__ . '/public/unzip.php');
+}
+PHPEOF
 
-        # Create unzip.php inside public directory
+        # ── public/unzip.php ──────────────────────────────────────────
         mkdir -p public
-        cat << 'EOF' > public/unzip.php
-        <?php
-        $zipFile = __DIR__ . '/../project.zip';
-        if (file_exists($zipFile)) {
-            $zip = new ZipArchive;
-            if ($zip->open($zipFile) === TRUE) {
-                $zip->extractTo(__DIR__ . '/../');
-                $zip->close();
-                echo 'SUCCESS';
-                unlink($zipFile);
-            } else {
-                echo 'ERROR: Failed to open zip';
-            }
-        } else {
-            echo 'ERROR: Zip file not found';
-        }
-        @unlink(__FILE__);
-        if (file_exists(__DIR__ . '/../unzip.php')) {
-            @unlink(__DIR__ . '/../unzip.php');
-        }
-        EOF
-        
-        # Create the zip archive
-        zip -r project.zip . -x ".git*" -x ".github*" -x "node_modules/*" -x "tests/*" -x "phpunit.xml" -x "vite.config.js" -x "package.json" -x "package-lock.json"
+        cat << 'PHPEOF' > public/unzip.php
+<?php
+$zipFile = __DIR__ . '/../project.zip';
+if (file_exists($zipFile)) {
+    $zip = new ZipArchive;
+    if ($zip->open($zipFile) === TRUE) {
+        $zip->extractTo(__DIR__ . '/../');
+        $zip->close();
+        echo 'SUCCESS';
+        unlink($zipFile);
+    } else {
+        echo 'ERROR: Failed to open zip';
+    }
+} else {
+    echo 'ERROR: Zip file not found';
+}
+@unlink(__FILE__);
+if (file_exists(__DIR__ . '/../unzip.php')) {
+    @unlink(__DIR__ . '/../unzip.php');
+}
+PHPEOF
+
+        # ── public/migrate_runner.php ─────────────────────────────────
+        # Token injected from GitHub Secret MIGRATE_SECRET
+        MIGRATE_TOKEN="${{ secrets.MIGRATE_SECRET }}"
+        cat << PHPEOF > public/migrate_runner.php
+<?php
+\$token = \$_GET['token'] ?? '';
+if (\$token !== '${MIGRATE_TOKEN}') {
+    http_response_code(403);
+    echo 'FORBIDDEN';
+    exit;
+}
+\$root = __DIR__ . '/..';
+\$out  = shell_exec("cd {\$root} && php artisan migrate --force 2>&1");
+echo "MIGRATE OUTPUT:\n" . \$out;
+@unlink(__FILE__);
+PHPEOF
+
+        # ── Create ZIP (exclude dev-only files) ───────────────────────
+        zip -r project.zip . \
+          -x ".git*" \
+          -x ".github*" \
+          -x "node_modules/*" \
+          -x "tests/*" \
+          -x "phpunit.xml" \
+          -x "vite.config.js" \
+          -x "package.json" \
+          -x "package-lock.json"
 
     - name: Install lftp
       run: sudo apt-get update && sudo apt-get install -y lftp
 
-    - name: Upload ZIP via FTP
+    - name: Upload ZIP + Scripts via FTP
       run: |
-        lftp -e "set ssl:verify-certificate no; open ${{ secrets.FTP_SERVER }}; user ${{ secrets.FTP_USERNAME }} '${{ secrets.FTP_PASSWORD }}'; mkdir -p domains/berkahsinergigemilang.com/public_html/finance/public; put -O domains/berkahsinergigemilang.com/public_html/finance/ project.zip; put -O domains/berkahsinergigemilang.com/public_html/finance/ unzip.php; put -O domains/berkahsinergigemilang.com/public_html/finance/public/ public/unzip.php; quit"
+        lftp -e "
+          set ssl:verify-certificate no;
+          open ${{ secrets.FTP_SERVER }};
+          user ${{ secrets.FTP_USERNAME }} '${{ secrets.FTP_PASSWORD }}';
+          mkdir -p domains/berkahsinergigemilang.com/public_html/finance/public;
+          put -O domains/berkahsinergigemilang.com/public_html/finance/ project.zip;
+          put -O domains/berkahsinergigemilang.com/public_html/finance/ unzip.php;
+          put -O domains/berkahsinergigemilang.com/public_html/finance/public/ public/unzip.php;
+          put -O domains/berkahsinergigemilang.com/public_html/finance/public/ public/migrate_runner.php;
+          quit"
 
-    - name: Execute Unzip via HTTP Request
+    - name: Execute Unzip on Server
       run: |
-        echo "Executing unzip script on Hostinger..."
-        # Try both URLs (subdomain pointed to root vs subdomain pointed to /public)
-        RESPONSE=$(curl -s -L --max-time 15 http://finance.berkahsinergigemilang.com/unzip.php)
+        echo "Running unzip on server..."
+        RESPONSE=$(curl -s -L --max-time 30 http://finance.berkahsinergigemilang.com/unzip.php)
         if [ "$RESPONSE" != "SUCCESS" ]; then
-          echo "Root url failed with response: $RESPONSE"
-          echo "Trying public/unzip.php URL..."
-          RESPONSE=$(curl -s -L --max-time 15 http://finance.berkahsinergigemilang.com/public/unzip.php)
+          echo "Root URL failed ($RESPONSE), trying public/unzip.php..."
+          RESPONSE=$(curl -s -L --max-time 30 http://finance.berkahsinergigemilang.com/public/unzip.php)
         fi
-        
-        echo "Response from server: $RESPONSE"
+        echo "Unzip response: $RESPONSE"
         if [ "$RESPONSE" = "SUCCESS" ]; then
-          echo "Deployment successful!"
+          echo "✅ Unzip successful!"
         else
-          echo "Deployment failed or unzip script could not be executed: $RESPONSE"
+          echo "❌ Unzip failed: $RESPONSE"
           exit 1
         fi
+
+    - name: Run Database Migration (php artisan migrate)
+      run: |
+        echo "Running artisan migrate on server..."
+        sleep 5
+        RESPONSE=$(curl -s -L --max-time 120 \
+          "http://finance.berkahsinergigemilang.com/migrate_runner.php?token=${{ secrets.MIGRATE_SECRET }}")
+        echo "Migration output:"
+        echo "$RESPONSE"
+        if echo "$RESPONSE" | grep -q "MIGRATE OUTPUT"; then
+          echo "✅ Migration completed!"
+        else
+          echo "⚠️  Warning: Unexpected response. Check server manually."
+        fi
+
+    - name: Clear Laravel Cache on Server
+      run: |
+        echo "Deployment done! Summary:"
+        echo "  → Files deployed via FTP ZIP method"
+        echo "  → Migrations executed via migrate_runner.php (self-deletes after run)"
+        echo "  → URL: http://finance.berkahsinergigemilang.com"
