@@ -31,10 +31,21 @@ $zipFile = __DIR__ . '/project.zip';
 if (file_exists($zipFile)) {
     $zip = new ZipArchive;
     if ($zip->open($zipFile) === TRUE) {
+        // Extract & overwrite existing files
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $filename = $zip->getNameIndex($i);
+            $target = __DIR__ . '/' . $filename;
+            if (substr($filename, -1) !== '/') {
+                if (file_exists($target)) {
+                    @chmod($target, 0666);
+                    @unlink($target);
+                }
+            }
+        }
         $zip->extractTo(__DIR__);
         $zip->close();
         echo 'SUCCESS';
-        unlink($zipFile);
+        @unlink($zipFile);
     } else {
         echo 'ERROR: Failed to open zip';
     }
@@ -55,10 +66,20 @@ $zipFile = __DIR__ . '/../project.zip';
 if (file_exists($zipFile)) {
     $zip = new ZipArchive;
     if ($zip->open($zipFile) === TRUE) {
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $filename = $zip->getNameIndex($i);
+            $target = __DIR__ . '/../' . $filename;
+            if (substr($filename, -1) !== '/') {
+                if (file_exists($target)) {
+                    @chmod($target, 0666);
+                    @unlink($target);
+                }
+            }
+        }
         $zip->extractTo(__DIR__ . '/../');
         $zip->close();
         echo 'SUCCESS';
-        unlink($zipFile);
+        @unlink($zipFile);
     } else {
         echo 'ERROR: Failed to open zip';
     }
@@ -72,7 +93,6 @@ if (file_exists(__DIR__ . '/../unzip.php')) {
 PHPEOF
 
         # ── public/migrate_runner.php ─────────────────────────────────
-        # Token injected from GitHub Secret MIGRATE_SECRET
         MIGRATE_TOKEN="${{ secrets.MIGRATE_SECRET }}"
         cat << PHPEOF > public/migrate_runner.php
 <?php
@@ -118,10 +138,10 @@ PHPEOF
     - name: Execute Unzip on Server
       run: |
         echo "Running unzip on server..."
-        RESPONSE=$(curl -s -L --max-time 30 http://finance.berkahsinergigemilang.com/unzip.php)
+        RESPONSE=$(curl -s -k -L --max-time 30 https://finance.berkahsinergigemilang.com/unzip.php)
         if [ "$RESPONSE" != "SUCCESS" ]; then
           echo "Root URL failed ($RESPONSE), trying public/unzip.php..."
-          RESPONSE=$(curl -s -L --max-time 30 http://finance.berkahsinergigemilang.com/public/unzip.php)
+          RESPONSE=$(curl -s -k -L --max-time 30 https://finance.berkahsinergigemilang.com/public/unzip.php)
         fi
         echo "Unzip response: $RESPONSE"
         if [ "$RESPONSE" = "SUCCESS" ]; then
@@ -134,20 +154,20 @@ PHPEOF
     - name: Run Database Migration (php artisan migrate)
       run: |
         echo "Running artisan migrate on server..."
-        sleep 5
-        RESPONSE=$(curl -s -L --max-time 120 \
-          "http://finance.berkahsinergigemilang.com/migrate_runner.php?token=${{ secrets.MIGRATE_SECRET }}")
+        sleep 3
+        RESPONSE=$(curl -s -k -L --max-time 120 \
+          "https://finance.berkahsinergigemilang.com/migrate_runner.php?token=${{ secrets.MIGRATE_SECRET }}")
         echo "Migration output:"
         echo "$RESPONSE"
         if echo "$RESPONSE" | grep -q "MIGRATE OUTPUT"; then
           echo "✅ Migration completed!"
         else
-          echo "⚠️  Warning: Unexpected response. Check server manually."
+          echo "⚠️  Warning: Migration response unexpected."
         fi
 
     - name: Clear Laravel Cache on Server
       run: |
-        echo "Deployment done! Summary:"
-        echo "  → Files deployed via FTP ZIP method"
-        echo "  → Migrations executed via migrate_runner.php (self-deletes after run)"
-        echo "  → URL: http://finance.berkahsinergigemilang.com"
+        echo "Clearing Laravel view and application cache on server..."
+        RESPONSE=$(curl -s -k -L --max-time 30 https://finance.berkahsinergigemilang.com/clear-cache)
+        echo "Clear cache response: $RESPONSE"
+        echo "✅ Deployment fully completed!"
