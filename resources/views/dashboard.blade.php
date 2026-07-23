@@ -709,18 +709,18 @@
                                                         </button>
                                                         @endif
 
-                                                        <!-- Delete button -->
+                                                        <!-- Delete button (Direct Native HTML Form, No JS needed) -->
                                                         @if (Auth::user()->hasPermission('delete_transactions'))
-                                                            <button 
-                                                                type="button" 
-                                                                class="btn-action btn-action-delete" 
-                                                                title="Hapus"
-                                                                onclick="confirmDeleteTransaction({{ $tx->id }}, '{{ $tx->transaction_number }}')"
-                                                            >
-                                                                <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                                </svg>
-                                                            </button>
+                                                            <form action="/transactions/{{ $tx->id }}" method="POST" style="display: inline;" onsubmit="return confirm('Apakah Anda yakin ingin menghapus transaksi {{ $tx->transaction_number }}?')">
+                                                                @csrf
+                                                                @method('DELETE')
+                                                                <input type="hidden" name="activeTab" value="transactions">
+                                                                <button type="submit" class="btn-action btn-action-delete" title="Hapus">
+                                                                    <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                    </svg>
+                                                                </button>
+                                                            </form>
                                                         @endif
                                                     </div>
                                                 </td>
