@@ -254,3 +254,17 @@ Route::get('/clear-cache', function () {
     }
 });
 
+Route::get('/view-logs', function () {
+    $logPath = storage_path('logs/laravel.log');
+    if (!file_exists($logPath)) {
+        return "Log file not found at: " . $logPath;
+    }
+    $content = file_get_contents($logPath);
+    if (empty(trim($content))) {
+        return "Log file is currently empty.";
+    }
+    $lines = explode("\n", $content);
+    $lastLines = array_slice($lines, -200);
+    return "<div style='background:#0d1117;color:#58a6ff;padding:20px;font-family:monospace;font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-all;'>=== LARAVEL RECENT LOGS (Last 200 lines) ===\n\n" . e(implode("\n", $lastLines)) . "</div>";
+});
+
