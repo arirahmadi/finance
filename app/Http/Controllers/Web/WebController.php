@@ -909,19 +909,29 @@ class WebController extends Controller
             return back()->withErrors(['auth' => 'Akses Ditolak: Anda tidak memiliki izin untuk menghapus transaksi.']);
         }
 
-        $tx = Transaction::with('attachments')->findOrFail($id);
+        try {
+            $tx = Transaction::with('attachments')->findOrFail($id);
 
-        DB::transaction(function () use ($tx) {
-            // Delete physical receipt files first
-            foreach ($tx->attachments as $attachment) {
-                \Illuminate\Support\Facades\Storage::disk('public')->delete($attachment->file_path);
-            }
+            DB::transaction(function () use ($tx) {
+                // Delete physical receipt files safely
+                foreach ($tx->attachments as $attachment) {
+                    try {
+                        \Illuminate\Support\Facades\Storage::disk('public')->delete($attachment->file_path);
+                    } catch (\Throwable $e) {
+                        \Illuminate\Support\Facades\Log::warning("Failed to delete attachment file: " . $e->getMessage());
+                    }
+                }
 
-            // Delete transaction (which automatically cascades to journal entries & attachments)
-            $tx->delete();
-        });
+                // Delete transaction (cascades to journal entries & attachments)
+                $tx->delete();
+            });
 
-        return redirect()->route('dashboard', ['activeTab' => $request->input('activeTab', 'transactions')])->with('success', 'Transaksi berhasil dihapus!');
+            return redirect()->route('dashboard', ['activeTab' => $request->input('activeTab', 'transactions')])
+                ->with('success', 'Transaksi berhasil dihapus!');
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Delete transaction failed: " . $e->getMessage());
+            return back()->withErrors(['delete_error' => 'Gagal menghapus transaksi #' . $id . ': ' . $e->getMessage()]);
+        }
     }
 
     /**
@@ -1354,22 +1364,26 @@ class WebController extends Controller
             return back()->withErrors(['auth' => 'Akses Ditolak: Anda tidak memiliki izin untuk menghapus settlement.']);
         }
 
-        $tx = Transaction::with('attachments')->findOrFail($id);
-        if (!$tx->is_advance) {
-            return back()->withErrors(['settlement' => 'Transaksi ini bukan uang muka.']);
-        }
-
-        DB::transaction(function () use ($tx) {
-            // Delete physical receipt files first
-            foreach ($tx->attachments as $attachment) {
-                \Illuminate\Support\Facades\Storage::disk('public')->delete($attachment->file_path);
+        try {
+            $tx = Transaction::with('attachments')->findOrFail($id);
+            if (!$tx->is_advance) {
+                return back()->withErrors(['settlement' => 'Transaksi ini bukan uang muka.']);
             }
 
-            // Delete transaction (which automatically cascades to journal entries & attachments)
-            $tx->delete();
-        });
+            DB::transaction(function () use ($tx) {
+                foreach ($tx->attachments as $attachment) {
+                    try {
+                        \Illuminate\Support\Facades\Storage::disk('public')->delete($attachment->file_path);
+                    } catch (\Throwable $e) {}
+                }
 
-        return redirect()->route('dashboard', ['activeTab' => 'settlements'])->with('success', 'Transaksi Uang Muka (Settlement) berhasil dihapus!');
+                $tx->delete();
+            });
+
+            return redirect()->route('dashboard', ['activeTab' => 'settlements'])->with('success', 'Transaksi Uang Muka (Settlement) berhasil dihapus!');
+        } catch (\Throwable $e) {
+            return back()->withErrors(['delete_error' => 'Gagal menghapus settlement #' . $id . ': ' . $e->getMessage()]);
+        }
     }
 
     /**
