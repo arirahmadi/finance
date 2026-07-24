@@ -268,3 +268,26 @@ Route::get('/view-logs', function () {
     return "<div style='background:#0d1117;color:#58a6ff;padding:20px;font-family:monospace;font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-all;'>=== LARAVEL RECENT LOGS (Last 200 lines) ===\n\n" . e(implode("\n", $lastLines)) . "</div>";
 });
 
+Route::get('/check-ca', function () {
+    $ca = \App\Models\Transaction::where('transaction_number', 'CA-20260712-0003')->with('journalEntries.account')->first();
+    if (!$ca) {
+        return response()->json(['status' => 'not_found', 'message' => 'Transaction CA-20260712-0003 not found']);
+    }
+    return response()->json([
+        'id' => $ca->id,
+        'transaction_number' => $ca->transaction_number,
+        'transaction_date' => $ca->transaction_date,
+        'is_transferred' => $ca->is_transferred,
+        'is_loan' => $ca->is_loan,
+        'amount' => $ca->amount,
+        'transferred_amount' => $ca->transferred_amount,
+        'journal_entries' => $ca->journalEntries->map(fn($e) => [
+            'account_id' => $e->account_id,
+            'account_code' => $e->account->code ?? 'N/A',
+            'account_name' => $e->account->name ?? 'N/A',
+            'type' => $e->type,
+            'amount' => $e->amount,
+        ]),
+    ]);
+});
+
