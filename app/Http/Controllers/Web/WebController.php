@@ -381,10 +381,14 @@ class WebController extends Controller
             if ($ledgerAccount) {
                 $startCarbon = Carbon::parse($ledgerStartDate)->startOfDay();
                 
-                // Prior balance calculation (Saldo Awal)
+                // Prior balance calculation (Saldo Awal - Transferred only)
                 $priorEntries = JournalEntry::where('account_id', $ledgerAccountId)
                     ->whereHas('transaction', function($q) use ($startCarbon) {
-                        $q->where('transaction_date', '<', $startCarbon);
+                        $q->where('transaction_date', '<', $startCarbon)
+                          ->where(function($sub) {
+                              $sub->where('is_transferred', true)
+                                  ->orWhereNotNull('loan_parent_id');
+                          });
                     })->get();
                     
                 foreach ($priorEntries as $entry) {
@@ -404,12 +408,16 @@ class WebController extends Controller
                     }
                 }
                 
-                // Mutation entries calculation
+                // Mutation entries calculation (Transferred only)
                 $endCarbon = Carbon::parse($ledgerEndDate)->endOfDay();
                 $rawEntries = JournalEntry::with(['transaction.creator'])
                     ->where('account_id', $ledgerAccountId)
                     ->whereHas('transaction', function($q) use ($startCarbon, $endCarbon) {
-                        $q->whereBetween('transaction_date', [$startCarbon, $endCarbon]);
+                        $q->whereBetween('transaction_date', [$startCarbon, $endCarbon])
+                          ->where(function($sub) {
+                              $sub->where('is_transferred', true)
+                                  ->orWhereNotNull('loan_parent_id');
+                          });
                     })->get();
                 
                 $sortedEntries = $rawEntries->sortBy(function($entry) {
