@@ -381,14 +381,10 @@ class WebController extends Controller
             if ($ledgerAccount) {
                 $startCarbon = Carbon::parse($ledgerStartDate)->startOfDay();
                 
-                // Prior balance calculation (Saldo Awal - Transferred only)
+                // Prior balance calculation (Saldo Awal)
                 $priorEntries = JournalEntry::where('account_id', $ledgerAccountId)
                     ->whereHas('transaction', function($q) use ($startCarbon) {
-                        $q->where('transaction_date', '<', $startCarbon)
-                          ->where(function($sub) {
-                              $sub->where('is_transferred', true)
-                                  ->orWhereNotNull('loan_parent_id');
-                          });
+                        $q->where('transaction_date', '<', $startCarbon);
                     })->get();
                     
                 foreach ($priorEntries as $entry) {
@@ -408,16 +404,12 @@ class WebController extends Controller
                     }
                 }
                 
-                // Mutation entries calculation (Transferred only)
+                // Mutation entries calculation
                 $endCarbon = Carbon::parse($ledgerEndDate)->endOfDay();
-                $rawEntries = JournalEntry::with(['transaction.creator'])
+                $rawEntries = JournalEntry::with(['transaction.creator', 'transaction'])
                     ->where('account_id', $ledgerAccountId)
                     ->whereHas('transaction', function($q) use ($startCarbon, $endCarbon) {
-                        $q->whereBetween('transaction_date', [$startCarbon, $endCarbon])
-                          ->where(function($sub) {
-                              $sub->where('is_transferred', true)
-                                  ->orWhereNotNull('loan_parent_id');
-                          });
+                        $q->whereBetween('transaction_date', [$startCarbon, $endCarbon]);
                     })->get();
                 
                 $sortedEntries = $rawEntries->sortBy(function($entry) {
