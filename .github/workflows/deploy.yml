@@ -127,17 +127,26 @@ PHPEOF
       run: sudo apt-get update && sudo apt-get install -y lftp
 
     - name: Upload ZIP + Scripts via FTP
+      env:
+        FTP_SERVER: ${{ secrets.FTP_SERVER }}
+        FTP_USER: ${{ secrets.FTP_USERNAME }}
+        FTP_PASS: ${{ secrets.FTP_PASSWORD }}
       run: |
-        lftp -e "
-          set ssl:verify-certificate no;
-          open ${{ secrets.FTP_SERVER }};
-          user ${{ secrets.FTP_USERNAME }} '${{ secrets.FTP_PASSWORD }}';
-          mkdir -p domains/berkahsinergigemilang.com/public_html/finance/public;
-          put -O domains/berkahsinergigemilang.com/public_html/finance/ project.zip;
-          put -O domains/berkahsinergigemilang.com/public_html/finance/ unzip.php;
-          put -O domains/berkahsinergigemilang.com/public_html/finance/public/ public/unzip.php;
-          put -O domains/berkahsinergigemilang.com/public_html/finance/public/ public/migrate_runner.php;
-          quit"
+        if [ -z "$FTP_SERVER" ] || [ -z "$FTP_USER" ]; then
+          echo "❌ ERROR: FTP_SERVER or FTP_USERNAME secrets are missing in GitHub repository settings!"
+          echo "Please add FTP_SERVER, FTP_USERNAME, and FTP_PASSWORD in GitHub -> Settings -> Secrets and variables -> Actions."
+          exit 1
+        fi
+        cat << 'EOF' > lftp_cmd.txt
+        set ssl:verify-certificate no;
+        mkdir -p domains/berkahsinergigemilang.com/public_html/finance/public;
+        put -O domains/berkahsinergigemilang.com/public_html/finance/ project.zip;
+        put -O domains/berkahsinergigemilang.com/public_html/finance/ unzip.php;
+        put -O domains/berkahsinergigemilang.com/public_html/finance/public/ public/unzip.php;
+        put -O domains/berkahsinergigemilang.com/public_html/finance/public/ public/migrate_runner.php;
+        quit
+        EOF
+        lftp -u "$FTP_USER","$FTP_PASS" "$FTP_SERVER" -f lftp_cmd.txt
 
     - name: Execute Unzip on Server
       run: |
