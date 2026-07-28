@@ -253,6 +253,26 @@ Route::get('/clear-cache', function () {
         return "Cache clear failed: " . $e->getMessage();
     }
 });
+Route::get('/debug-ledger', function () {
+    $tx = \App\Models\Transaction::where('transaction_number', 'TX-20260728-0008')->first();
+    $rawEntries = \App\Models\JournalEntry::where('account_id', 1)
+        ->whereHas('transaction', function($q) {
+            $q->where(function($sub) {
+                $sub->where('is_transferred', true)
+                    ->orWhere(function($q1) {
+                        $q1->where('is_reimbursement', true)
+                           ->where('reimbursement_status', 'transferred');
+                    });
+            });
+        })->get();
+
+    return response()->json([
+        'version' => 'v2_filtered_ledger',
+        'tx_0008' => $tx,
+        'has_0008_in_raw' => $tx ? $rawEntries->contains('transaction_id', $tx->id) : false,
+        'raw_entries_count' => $rawEntries->count(),
+    ]);
+});
 
 Route::get('/view-logs', function () {
     $logPath = storage_path('logs/laravel.log');

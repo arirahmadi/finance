@@ -809,17 +809,17 @@ class TransactionController extends Controller
 
         // 1. Calculate Starting Balance (Saldo Awal)
         $startingBalance = 0;
-        $priorEntries = JournalEntry::where('account_id', $accountId)
+        $priorEntries = JournalEntry::with('transaction')
+            ->where('account_id', $accountId)
             ->whereHas('transaction', function($q) use ($startCarbon) {
-                $q->where('transaction_date', '<', $startCarbon)
-                  ->where(function($sub) {
-                      $sub->where('is_transferred', true)
-                          ->orWhere(function($q1) {
-                              $q1->where('is_reimbursement', true)
-                                 ->where('reimbursement_status', 'transferred');
-                          });
-                  });
-            })->get();
+                $q->where('transaction_date', '<', $startCarbon);
+            })->get()->filter(function($entry) {
+                $tx = $entry->transaction;
+                if (!$tx) return false;
+                return $tx->is_reimbursement
+                    ? ($tx->reimbursement_status === 'transferred')
+                    : (bool) $tx->is_transferred;
+            });
 
         foreach ($priorEntries as $entry) {
             $amount = floatval($entry->amount);
@@ -839,18 +839,17 @@ class TransactionController extends Controller
         }
 
         // 2. Fetch Mutation Entries
-        $rawEntries = JournalEntry::with(['transaction.creator'])
+        $rawEntries = JournalEntry::with(['transaction.creator', 'transaction'])
             ->where('account_id', $accountId)
             ->whereHas('transaction', function($q) use ($startCarbon, $endCarbon) {
-                $q->whereBetween('transaction_date', [$startCarbon, $endCarbon])
-                  ->where(function($sub) {
-                      $sub->where('is_transferred', true)
-                          ->orWhere(function($q1) {
-                              $q1->where('is_reimbursement', true)
-                                 ->where('reimbursement_status', 'transferred');
-                          });
-                  });
-            })->get();
+                $q->whereBetween('transaction_date', [$startCarbon, $endCarbon]);
+            })->get()->filter(function($entry) {
+                $tx = $entry->transaction;
+                if (!$tx) return false;
+                return $tx->is_reimbursement
+                    ? ($tx->reimbursement_status === 'transferred')
+                    : (bool) $tx->is_transferred;
+            });
 
         $sortedEntries = $rawEntries->sortBy(function($entry) {
             return $entry->transaction->transaction_date->format('Y-m-d') . '_' . str_pad($entry->transaction_id, 10, '0', STR_PAD_LEFT);
