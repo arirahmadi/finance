@@ -2090,7 +2090,7 @@
                     </div>
                     <div class="form-group" style="margin-top: 12px;">
                         <label class="form-label">Sisa Pinjaman Saat Ini</label>
-                        <input type="text" id="repay_loan_remaining" class="form-input" disabled style="background: rgba(255,255,255,0.05); color: var(--text-secondary);">
+                        <input type="text" name="remaining_amount" id="repay_loan_remaining" class="form-input rupiah-input" required placeholder="Contoh: 1.500.000">
                     </div>
                     <hr style="border: 0; border-top: 1px solid var(--border-glass); margin: 16px 0;">
 
@@ -3511,7 +3511,7 @@
             
             document.getElementById('repay_loan_num').value = loanNum;
             document.getElementById('repay_loan_recipient').value = recipient;
-            document.getElementById('repay_loan_remaining').value = 'Rp ' + remaining;
+            document.getElementById('repay_loan_remaining').value = remaining;
             
             document.getElementById('repaymentModal').classList.add('active');
         }

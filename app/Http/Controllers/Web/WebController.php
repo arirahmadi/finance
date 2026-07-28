@@ -1633,12 +1633,15 @@ class WebController extends Controller
             'amount' => 'required|string',
             'payment_account_id' => 'required|exists:accounts,id',
             'description' => 'required|string|max:255',
+            'remaining_amount' => 'required|string',
         ]);
 
         $amount = floatval(str_replace('.', '', $request->amount));
         if ($amount <= 0) {
             return back()->withErrors(['amount' => 'Nominal angsuran harus lebih besar dari 0.']);
         }
+
+        $remainingAmountInput = floatval(str_replace('.', '', $request->remaining_amount));
 
         $loanAmount = 0;
         foreach ($loan->journalEntries as $entry) {
@@ -1650,15 +1653,12 @@ class WebController extends Controller
             $loanAmount = floatval($loan->journalEntries->first()->amount);
         }
 
-        $currentRepaid = floatval($loan->loan_repaid_amount);
-        $remaining = $loanAmount - $currentRepaid;
-
         $loanAccount = Account::where('code', '1203')->first();
         if (!$loanAccount) {
             return back()->withErrors(['amount' => 'Akun Piutang Karyawan (1203) belum terdaftar.']);
         }
 
-        DB::transaction(function () use ($loan, $request, $amount, $loanAccount, $currentRepaid, $loanAmount) {
+        DB::transaction(function () use ($loan, $request, $amount, $loanAccount, $loanAmount, $remainingAmountInput) {
             $datePrefix = Carbon::parse($request->transaction_date)->format('Ymd');
             $countToday = Transaction::whereDate('transaction_date', $request->transaction_date)
                 ->where('transaction_number', 'LIKE', "CAR-{$datePrefix}-%")
@@ -1693,10 +1693,11 @@ class WebController extends Controller
                 'amount' => $amount,
             ]);
 
-            $newRepaid = $currentRepaid + $amount;
+            $newRemaining = max(0.0, $remainingAmountInput - $amount);
+            $newRepaid = max(0.0, $loanAmount - $newRemaining);
             $loan->update([
                 'loan_repaid_amount' => $newRepaid,
-                'loan_status' => ($newRepaid >= $loanAmount) ? 'repaid' : 'open',
+                'loan_status' => ($newRemaining <= 0) ? 'repaid' : 'open',
             ]);
         });
 
