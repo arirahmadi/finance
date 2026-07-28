@@ -1074,7 +1074,7 @@
                                                 </td>
                                                 <td>
                                                     <div class="action-buttons-group">
-                                                        @if ($loan->loan_status !== 'repaid' && Auth::user()->hasPermission('create_cash_advances'))
+                                                        @if (Auth::user()->hasPermission('create_cash_advances'))
                                                             <button 
                                                                 type="button" 
                                                                 class="btn-action btn-action-edit" 

@@ -1627,9 +1627,6 @@ class WebController extends Controller
         }
 
         $loan = Transaction::where('is_loan', true)->findOrFail($id);
-        if ($loan->loan_status === 'repaid') {
-            return back()->withErrors(['repay' => 'Pinjaman ini sudah lunas.']);
-        }
 
         $request->validate([
             'transaction_date' => 'required|date',
@@ -1655,10 +1652,6 @@ class WebController extends Controller
 
         $currentRepaid = floatval($loan->loan_repaid_amount);
         $remaining = $loanAmount - $currentRepaid;
-
-        if ($amount > $remaining) {
-            return back()->withErrors(['amount' => 'Nominal angsuran tidak boleh melebihi sisa pinjaman (Rp ' . number_format($remaining, 0, ',', '.') . ').']);
-        }
 
         $loanAccount = Account::where('code', '1203')->first();
         if (!$loanAccount) {
