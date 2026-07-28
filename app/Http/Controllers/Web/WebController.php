@@ -1637,8 +1637,8 @@ class WebController extends Controller
         ]);
 
         $amount = floatval(str_replace('.', '', $request->amount));
-        if ($amount <= 0) {
-            return back()->withErrors(['amount' => 'Nominal angsuran harus lebih besar dari 0.']);
+        if ($amount < 0) {
+            return back()->withErrors(['amount' => 'Nominal angsuran tidak boleh kurang dari 0.']);
         }
 
         $remainingAmountInput = floatval(str_replace('.', '', $request->remaining_amount));
@@ -1659,39 +1659,41 @@ class WebController extends Controller
         }
 
         DB::transaction(function () use ($loan, $request, $amount, $loanAccount, $loanAmount, $remainingAmountInput) {
-            $datePrefix = Carbon::parse($request->transaction_date)->format('Ymd');
-            $countToday = Transaction::whereDate('transaction_date', $request->transaction_date)
-                ->where('transaction_number', 'LIKE', "CAR-{$datePrefix}-%")
-                ->count();
-            $seq = str_pad($countToday + 1, 4, '0', STR_PAD_LEFT);
-            $txNum = "CAR-{$datePrefix}-{$seq}";
+            if ($amount > 0) {
+                $datePrefix = Carbon::parse($request->transaction_date)->format('Ymd');
+                $countToday = Transaction::whereDate('transaction_date', $request->transaction_date)
+                    ->where('transaction_number', 'LIKE', "CAR-{$datePrefix}-%")
+                    ->count();
+                $seq = str_pad($countToday + 1, 4, '0', STR_PAD_LEFT);
+                $txNum = "CAR-{$datePrefix}-{$seq}";
 
-            $repTx = Transaction::create([
-                'transaction_number' => $txNum,
-                'transaction_date' => $request->transaction_date,
-                'description' => $request->description,
-                'recipient_name' => $loan->recipient_name,
-                'is_advance' => false,
-                'is_loan' => false,
-                'loan_parent_id' => $loan->id,
-                'created_by' => Auth::id(),
-            ]);
+                $repTx = Transaction::create([
+                    'transaction_number' => $txNum,
+                    'transaction_date' => $request->transaction_date,
+                    'description' => $request->description,
+                    'recipient_name' => $loan->recipient_name,
+                    'is_advance' => false,
+                    'is_loan' => false,
+                    'loan_parent_id' => $loan->id,
+                    'created_by' => Auth::id(),
+                ]);
 
-            // Debit chosen Cash/Bank destination
-            JournalEntry::create([
-                'transaction_id' => $repTx->id,
-                'account_id' => $request->payment_account_id,
-                'type' => 'debit',
-                'amount' => $amount,
-            ]);
+                // Debit chosen Cash/Bank destination
+                JournalEntry::create([
+                    'transaction_id' => $repTx->id,
+                    'account_id' => $request->payment_account_id,
+                    'type' => 'debit',
+                    'amount' => $amount,
+                ]);
 
-            // Credit 1203
-            JournalEntry::create([
-                'transaction_id' => $repTx->id,
-                'account_id' => $loanAccount->id,
-                'type' => 'credit',
-                'amount' => $amount,
-            ]);
+                // Credit 1203
+                JournalEntry::create([
+                    'transaction_id' => $repTx->id,
+                    'account_id' => $loanAccount->id,
+                    'type' => 'credit',
+                    'amount' => $amount,
+                ]);
+            }
 
             $newRemaining = max(0.0, $remainingAmountInput - $amount);
             $newRepaid = max(0.0, $loanAmount - $newRemaining);
