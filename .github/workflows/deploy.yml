@@ -26,71 +26,71 @@ jobs:
       run: |
         # ── unzip.php (project root) ──────────────────────────────────
         cat << 'PHPEOF' > unzip.php
-<?php
-$zipFile = __DIR__ . '/project.zip';
-if (file_exists($zipFile)) {
-    $zip = new ZipArchive;
-    if ($zip->open($zipFile) === TRUE) {
-        $zip->extractTo(__DIR__);
-        $zip->close();
-        @unlink($zipFile);
+        <?php
+        $zipFile = __DIR__ . '/project.zip';
+        if (file_exists($zipFile)) {
+            $zip = new ZipArchive;
+            if ($zip->open($zipFile) === TRUE) {
+                $zip->extractTo(__DIR__);
+                $zip->close();
+                @unlink($zipFile);
 
-        // Delete compiled Blade views so Laravel is forced to load new dashboard.blade.php
-        $compiledViews = glob(__DIR__ . '/storage/framework/views/*.php');
-        if ($compiledViews) {
-            foreach ($compiledViews as $vf) {
-                @unlink($vf);
+                // Delete compiled Blade views so Laravel is forced to load new dashboard.blade.php
+                $compiledViews = glob(__DIR__ . '/storage/framework/views/*.php');
+                if ($compiledViews) {
+                    foreach ($compiledViews as $vf) {
+                        @unlink($vf);
+                    }
+                }
+                if (function_exists('opcache_reset')) {
+                    @opcache_reset();
+                }
+                echo 'SUCCESS';
+            } else {
+                echo 'ERROR: Failed to open zip';
             }
+        } else {
+            echo 'ERROR: Zip file not found';
         }
-        if (function_exists('opcache_reset')) {
-            @opcache_reset();
+        @unlink(__FILE__);
+        if (file_exists(__DIR__ . '/public/unzip.php')) {
+            @unlink(__DIR__ . '/public/unzip.php');
         }
-        echo 'SUCCESS';
-    } else {
-        echo 'ERROR: Failed to open zip';
-    }
-} else {
-    echo 'ERROR: Zip file not found';
-}
-@unlink(__FILE__);
-if (file_exists(__DIR__ . '/public/unzip.php')) {
-    @unlink(__DIR__ . '/public/unzip.php');
-}
-PHPEOF
+        PHPEOF
 
         # ── public/unzip.php ──────────────────────────────────────────
         mkdir -p public
         cat << 'PHPEOF' > public/unzip.php
-<?php
-$zipFile = __DIR__ . '/../project.zip';
-if (file_exists($zipFile)) {
-    $zip = new ZipArchive;
-    if ($zip->open($zipFile) === TRUE) {
-        $zip->extractTo(__DIR__ . '/../');
-        $zip->close();
-        @unlink($zipFile);
+        <?php
+        $zipFile = __DIR__ . '/../project.zip';
+        if (file_exists($zipFile)) {
+            $zip = new ZipArchive;
+            if ($zip->open($zipFile) === TRUE) {
+                $zip->extractTo(__DIR__ . '/../');
+                $zip->close();
+                @unlink($zipFile);
 
-        $compiledViews = glob(__DIR__ . '/../storage/framework/views/*.php');
-        if ($compiledViews) {
-            foreach ($compiledViews as $vf) {
-                @unlink($vf);
+                $compiledViews = glob(__DIR__ . '/../storage/framework/views/*.php');
+                if ($compiledViews) {
+                    foreach ($compiledViews as $vf) {
+                        @unlink($vf);
+                    }
+                }
+                if (function_exists('opcache_reset')) {
+                    @opcache_reset();
+                }
+                echo 'SUCCESS';
+            } else {
+                echo 'ERROR: Failed to open zip';
             }
+        } else {
+            echo 'ERROR: Zip file not found';
         }
-        if (function_exists('opcache_reset')) {
-            @opcache_reset();
+        @unlink(__FILE__);
+        if (file_exists(__DIR__ . '/../unzip.php')) {
+            @unlink(__DIR__ . '/../unzip.php');
         }
-        echo 'SUCCESS';
-    } else {
-        echo 'ERROR: Failed to open zip';
-    }
-} else {
-    echo 'ERROR: Zip file not found';
-}
-@unlink(__FILE__);
-if (file_exists(__DIR__ . '/../unzip.php')) {
-    @unlink(__DIR__ . '/../unzip.php');
-}
-PHPEOF
+        PHPEOF
 
         # ── public/migrate_runner.php ─────────────────────────────────
         MIGRATE_TOKEN="${{ secrets.MIGRATE_SECRET }}"
@@ -98,19 +98,19 @@ PHPEOF
           MIGRATE_TOKEN="default_secret_token_123"
         fi
         cat << PHPEOF > public/migrate_runner.php
-<?php
-\$token = \$_GET['token'] ?? '';
-\$expected = '${MIGRATE_TOKEN}';
-if (!empty(\$expected) && \$token !== \$expected && \$token !== 'default_secret_token_123') {
-    http_response_code(403);
-    echo 'FORBIDDEN';
-    exit;
-}
-\$root = __DIR__ . '/..';
-\$out  = shell_exec("cd {\$root} && php artisan migrate --force 2>&1");
-echo "MIGRATE OUTPUT:\n" . \$out;
-@unlink(__FILE__);
-PHPEOF
+        <?php
+        \$token = \$_GET['token'] ?? '';
+        \$expected = '${MIGRATE_TOKEN}';
+        if (!empty(\$expected) && \$token !== \$expected && \$token !== 'default_secret_token_123') {
+            http_response_code(403);
+            echo 'FORBIDDEN';
+            exit;
+        }
+        \$root = __DIR__ . '/..';
+        \$out  = shell_exec("cd {\$root} && php artisan migrate --force 2>&1");
+        echo "MIGRATE OUTPUT:\n" . \$out;
+        @unlink(__FILE__);
+        PHPEOF
 
         # ── Create ZIP ────────────────────────────────────────────────
         zip -r project.zip . \
