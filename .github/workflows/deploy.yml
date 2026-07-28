@@ -24,19 +24,23 @@ jobs:
 
     - name: Prepare Zip, Unzip Script, and Migrate Runner
       run: |
-        # ── unzip.php (project root) ──────────────────────────────────
+        # ── unzip.php (smart root/public extractor) ────────────────────
         cat << 'PHPEOF' > unzip.php
         <?php
         $zipFile = __DIR__ . '/project.zip';
+        $extractTo = __DIR__;
+        if (!file_exists($zipFile)) {
+            $zipFile = __DIR__ . '/../project.zip';
+            $extractTo = __DIR__ . '/..';
+        }
         if (file_exists($zipFile)) {
             $zip = new ZipArchive;
             if ($zip->open($zipFile) === TRUE) {
-                $zip->extractTo(__DIR__);
+                $zip->extractTo($extractTo);
                 $zip->close();
                 @unlink($zipFile);
 
-                // Delete compiled Blade views so Laravel is forced to load new dashboard.blade.php
-                $compiledViews = glob(__DIR__ . '/storage/framework/views/*.php');
+                $compiledViews = glob($extractTo . '/storage/framework/views/*.php');
                 if ($compiledViews) {
                     foreach ($compiledViews as $vf) {
                         @unlink($vf);
@@ -53,44 +57,10 @@ jobs:
             echo 'ERROR: Zip file not found';
         }
         @unlink(__FILE__);
-        if (file_exists(__DIR__ . '/public/unzip.php')) {
-            @unlink(__DIR__ . '/public/unzip.php');
-        }
         PHPEOF
 
-        # ── public/unzip.php ──────────────────────────────────────────
         mkdir -p public
-        cat << 'PHPEOF' > public/unzip.php
-        <?php
-        $zipFile = __DIR__ . '/../project.zip';
-        if (file_exists($zipFile)) {
-            $zip = new ZipArchive;
-            if ($zip->open($zipFile) === TRUE) {
-                $zip->extractTo(__DIR__ . '/../');
-                $zip->close();
-                @unlink($zipFile);
-
-                $compiledViews = glob(__DIR__ . '/../storage/framework/views/*.php');
-                if ($compiledViews) {
-                    foreach ($compiledViews as $vf) {
-                        @unlink($vf);
-                    }
-                }
-                if (function_exists('opcache_reset')) {
-                    @opcache_reset();
-                }
-                echo 'SUCCESS';
-            } else {
-                echo 'ERROR: Failed to open zip';
-            }
-        } else {
-            echo 'ERROR: Zip file not found';
-        }
-        @unlink(__FILE__);
-        if (file_exists(__DIR__ . '/../unzip.php')) {
-            @unlink(__DIR__ . '/../unzip.php');
-        }
-        PHPEOF
+        cp unzip.php public/unzip.php
 
         # ── public/migrate_runner.php ─────────────────────────────────
         MIGRATE_TOKEN="${{ secrets.MIGRATE_SECRET }}"
@@ -140,14 +110,15 @@ jobs:
         cat << 'EOF' > lftp_cmd.txt
         set ssl:verify-certificate no;
         mkdir -p public;
+        mkdir -p finance;
         mkdir -p finance/public;
         put -O ./ project.zip;
         put -O ./ unzip.php;
-        put -O public/ public/unzip.php;
+        put -O public/ unzip.php;
         put -O public/ public/migrate_runner.php;
         put -O finance/ project.zip;
         put -O finance/ unzip.php;
-        put -O finance/public/ public/unzip.php;
+        put -O finance/public/ unzip.php;
         put -O finance/public/ public/migrate_runner.php;
         quit
         EOF
