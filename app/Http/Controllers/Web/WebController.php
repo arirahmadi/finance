@@ -384,7 +384,14 @@ class WebController extends Controller
                 // Prior balance calculation (Saldo Awal)
                 $priorEntries = JournalEntry::where('account_id', $ledgerAccountId)
                     ->whereHas('transaction', function($q) use ($startCarbon) {
-                        $q->where('transaction_date', '<', $startCarbon);
+                        $q->where('transaction_date', '<', $startCarbon)
+                          ->where(function($sub) {
+                              $sub->where('is_transferred', true)
+                                  ->orWhere(function($q1) {
+                                      $q1->where('is_reimbursement', true)
+                                         ->where('reimbursement_status', 'transferred');
+                                  });
+                          });
                     })->get();
                     
                 foreach ($priorEntries as $entry) {
@@ -409,7 +416,14 @@ class WebController extends Controller
                 $rawEntries = JournalEntry::with(['transaction.creator', 'transaction'])
                     ->where('account_id', $ledgerAccountId)
                     ->whereHas('transaction', function($q) use ($startCarbon, $endCarbon) {
-                        $q->whereBetween('transaction_date', [$startCarbon, $endCarbon]);
+                        $q->whereBetween('transaction_date', [$startCarbon, $endCarbon])
+                          ->where(function($sub) {
+                              $sub->where('is_transferred', true)
+                                  ->orWhere(function($q1) {
+                                      $q1->where('is_reimbursement', true)
+                                         ->where('reimbursement_status', 'transferred');
+                                  });
+                          });
                     })->get();
                 
                 $sortedEntries = $rawEntries->sortBy(function($entry) {
@@ -1774,6 +1788,7 @@ class WebController extends Controller
             // Update transaction status
             $tx->update([
                 'reimbursement_status' => 'transferred',
+                'is_transferred' => true,
                 'transfer_proof_path' => $path,
             ]);
 

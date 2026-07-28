@@ -811,7 +811,14 @@ class TransactionController extends Controller
         $startingBalance = 0;
         $priorEntries = JournalEntry::where('account_id', $accountId)
             ->whereHas('transaction', function($q) use ($startCarbon) {
-                $q->where('transaction_date', '<', $startCarbon);
+                $q->where('transaction_date', '<', $startCarbon)
+                  ->where(function($sub) {
+                      $sub->where('is_transferred', true)
+                          ->orWhere(function($q1) {
+                              $q1->where('is_reimbursement', true)
+                                 ->where('reimbursement_status', 'transferred');
+                          });
+                  });
             })->get();
 
         foreach ($priorEntries as $entry) {
@@ -835,7 +842,14 @@ class TransactionController extends Controller
         $rawEntries = JournalEntry::with(['transaction.creator'])
             ->where('account_id', $accountId)
             ->whereHas('transaction', function($q) use ($startCarbon, $endCarbon) {
-                $q->whereBetween('transaction_date', [$startCarbon, $endCarbon]);
+                $q->whereBetween('transaction_date', [$startCarbon, $endCarbon])
+                  ->where(function($sub) {
+                      $sub->where('is_transferred', true)
+                          ->orWhere(function($q1) {
+                              $q1->where('is_reimbursement', true)
+                                 ->where('reimbursement_status', 'transferred');
+                          });
+                  });
             })->get();
 
         $sortedEntries = $rawEntries->sortBy(function($entry) {
