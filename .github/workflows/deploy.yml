@@ -139,11 +139,16 @@ jobs:
         fi
         cat << 'EOF' > lftp_cmd.txt
         set ssl:verify-certificate no;
-        mkdir -p domains/berkahsinergigemilang.com/public_html/finance/public;
-        put -O domains/berkahsinergigemilang.com/public_html/finance/ project.zip;
-        put -O domains/berkahsinergigemilang.com/public_html/finance/ unzip.php;
-        put -O domains/berkahsinergigemilang.com/public_html/finance/public/ public/unzip.php;
-        put -O domains/berkahsinergigemilang.com/public_html/finance/public/ public/migrate_runner.php;
+        mkdir -p public;
+        mkdir -p finance/public;
+        put -O ./ project.zip;
+        put -O ./ unzip.php;
+        put -O public/ public/unzip.php;
+        put -O public/ public/migrate_runner.php;
+        put -O finance/ project.zip;
+        put -O finance/ unzip.php;
+        put -O finance/public/ public/unzip.php;
+        put -O finance/public/ public/migrate_runner.php;
         quit
         EOF
         lftp -u "$FTP_USER","$FTP_PASS" "$FTP_SERVER" -f lftp_cmd.txt
