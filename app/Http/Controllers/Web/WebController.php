@@ -779,6 +779,290 @@ class WebController extends Controller
     }
 
     /**
+     * Export regular transactions to XLS.
+     */
+    public function exportTransactionsXls(Request $request)
+    {
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+
+        $query = Transaction::with(['journalEntries.account', 'attachments', 'creator'])
+            ->where('is_advance', false)
+            ->where('is_loan', false)
+            ->whereNull('loan_parent_id')
+            ->orderBy('transaction_date', 'desc')
+            ->orderBy('id', 'desc');
+
+        if ($startDate) {
+            $query->where('transaction_date', '>=', Carbon::parse($startDate)->startOfDay());
+        }
+        if ($endDate) {
+            $query->where('transaction_date', '<=', Carbon::parse($endDate)->endOfDay());
+        }
+
+        $transactions = $query->get();
+
+        $html = '<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        table { border-collapse: collapse; width: 100%; font-family: sans-serif; }
+        th, td { border: 1px solid #000000; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; font-weight: bold; }
+        .tx-number { mso-number-format:"\@"; }
+    </style>
+</head>
+<body>
+    <h2>Laporan Transaksi Keuangan</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Nomor Bukti</th>
+                <th>Tanggal</th>
+                <th>Jenis</th>
+                <th>Kategori Akun</th>
+                <th>Kas/Bank</th>
+                <th>Deskripsi/Keterangan</th>
+                <th>Nominal (Rp)</th>
+                <th>Petugas</th>
+            </tr>
+        </thead>
+        <tbody>';
+
+        foreach ($transactions as $tx) {
+            $type = 'unknown';
+            $amount = 0;
+            $category = null;
+            $paymentSource = null;
+
+            foreach ($tx->journalEntries as $entry) {
+                $accCode = $entry->account->code;
+                $isAsset = Str::startsWith($accCode, '11') || Str::startsWith($accCode, '21');
+
+                if ($isAsset) {
+                    $paymentSource = $entry->account->name;
+                    $amount = floatval($entry->amount);
+                    if ($entry->type === 'debit') {
+                        $type = 'Uang Masuk';
+                    } else {
+                        $type = 'Uang Keluar';
+                    }
+                } else {
+                    $category = $entry->account->name;
+                }
+            }
+
+            if ($amount === 0 && $tx->journalEntries->isNotEmpty()) {
+                $amount = floatval($tx->journalEntries->first()->amount);
+            }
+
+            $html .= '<tr>
+                <td class="tx-number">' . htmlspecialchars($tx->transaction_number) . '</td>
+                <td>' . htmlspecialchars($tx->transaction_date->format('d-m-Y')) . '</td>
+                <td>' . htmlspecialchars($type) . '</td>
+                <td>' . htmlspecialchars($category ?? '-') . '</td>
+                <td>' . htmlspecialchars($paymentSource ?? '-') . '</td>
+                <td>' . htmlspecialchars($tx->description ?? '-') . '</td>
+                <td>' . number_format($amount, 0, ',', '.') . '</td>
+                <td>' . htmlspecialchars($tx->creator->name ?? '-') . '</td>
+            </tr>';
+        }
+
+        $html .= '</tbody>
+    </table>
+</body>
+</html>';
+
+        $filename = "laporan_keuangan_" . now()->format('YmdHis') . ".xls";
+
+        return response($html)
+            ->header('Content-Type', 'application/vnd.ms-excel; charset=utf-8')
+            ->header('Content-Disposition', 'attachment; filename=' . $filename)
+            ->header('Pragma', 'no-cache')
+            ->header('Cache-Control', 'must-revalidate, post-check=0, pre-check=0')
+            ->header('Expires', '0');
+    }
+
+    /**
+     * Export general ledger of a specific account to XLS (without Petugas column).
+     */
+    public function exportLedgerXls(Request $request)
+    {
+        $ledgerAccountId = $request->input('ledger_account_id');
+        $ledgerStartDate = $request->input('ledger_start_date', Carbon::now()->startOfMonth()->format('Y-m-d'));
+        $ledgerEndDate = $request->input('ledger_end_date', Carbon::now()->endOfMonth()->format('Y-m-d'));
+
+        if (!$ledgerAccountId) {
+            return back()->withErrors(['ledger' => 'Silakan pilih akun Buku Besar terlebih dahulu.']);
+        }
+
+        $ledgerAccount = Account::findOrFail($ledgerAccountId);
+        $ledgerStartingBalance = 0;
+        $ledgerEntries = collect([]);
+        $ledgerEndingBalance = 0;
+
+        $startCarbon = Carbon::parse($ledgerStartDate)->startOfDay();
+
+        // Prior balance calculation (Saldo Awal)
+        $priorEntries = JournalEntry::with('transaction')
+            ->where('account_id', $ledgerAccountId)
+            ->whereHas('transaction', function($q) use ($startCarbon) {
+                $q->where('transaction_date', '<', $startCarbon);
+            })->get()->filter(function($entry) {
+                $tx = $entry->transaction;
+                if (!$tx) return false;
+                return $tx->is_reimbursement
+                    ? ($tx->reimbursement_status === 'transferred')
+                    : (bool) $tx->is_transferred;
+            });
+
+        foreach ($priorEntries as $entry) {
+            $amount = floatval($entry->amount);
+            if ($ledgerAccount->type === 'asset' || $ledgerAccount->type === 'expense') {
+                if ($entry->type === 'debit') {
+                    $ledgerStartingBalance += $amount;
+                } else {
+                    $ledgerStartingBalance -= $amount;
+                }
+            } else {
+                if ($entry->type === 'credit') {
+                    $ledgerStartingBalance += $amount;
+                } else {
+                    $ledgerStartingBalance -= $amount;
+                }
+            }
+        }
+
+        // Mutation entries calculation
+        $endCarbon = Carbon::parse($ledgerEndDate)->endOfDay();
+        $rawEntries = JournalEntry::with(['transaction.creator', 'transaction'])
+            ->where('account_id', $ledgerAccountId)
+            ->whereHas('transaction', function($q) use ($startCarbon, $endCarbon) {
+                $q->whereBetween('transaction_date', [$startCarbon, $endCarbon]);
+            })->get()->filter(function($entry) {
+                $tx = $entry->transaction;
+                if (!$tx) return false;
+                return $tx->is_reimbursement
+                    ? ($tx->reimbursement_status === 'transferred')
+                    : (bool) $tx->is_transferred;
+            });
+
+        $sortedEntries = $rawEntries->sortBy(function($entry) {
+            return $entry->transaction->transaction_date->format('Y-m-d') . '_' . str_pad($entry->transaction_id, 10, '0', STR_PAD_LEFT);
+        });
+
+        $runningBalance = $ledgerStartingBalance;
+        $ledgerEntries = $sortedEntries->map(function ($entry) use (&$runningBalance, $ledgerAccount) {
+            $amount = floatval($entry->amount);
+            $debit = 0;
+            $credit = 0;
+
+            if ($entry->type === 'debit') {
+                $debit = $amount;
+                if ($ledgerAccount->type === 'asset' || $ledgerAccount->type === 'expense') {
+                    $runningBalance += $amount;
+                } else {
+                    $runningBalance -= $amount;
+                }
+            } else {
+                $credit = $amount;
+                if ($ledgerAccount->type === 'asset' || $ledgerAccount->type === 'expense') {
+                    $runningBalance -= $amount;
+                } else {
+                    $runningBalance += $amount;
+                }
+            }
+
+            return (object) [
+                'transaction_number' => $entry->transaction->transaction_number,
+                'transaction_date' => $entry->transaction->transaction_date,
+                'description' => $entry->transaction->description,
+                'debit' => $debit,
+                'credit' => $credit,
+                'running_balance' => $runningBalance
+            ];
+        });
+
+        $ledgerEndingBalance = $runningBalance;
+
+        $html = '<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        table { border-collapse: collapse; width: 100%; font-family: sans-serif; }
+        th, td { border: 1px solid #000000; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; font-weight: bold; }
+        .tx-number { mso-number-format:"\@"; }
+    </style>
+</head>
+<body>
+    <h2>Laporan Buku Besar</h2>
+    <p><strong>Akun:</strong> ' . htmlspecialchars($ledgerAccount->code) . ' - ' . htmlspecialchars($ledgerAccount->name) . ' (' . ucfirst(htmlspecialchars($ledgerAccount->type)) . ')</p>
+    <p><strong>Periode:</strong> ' . Carbon::parse($ledgerStartDate)->format('d/m/Y') . ' - ' . Carbon::parse($ledgerEndDate)->format('d/m/Y') . '</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Tanggal</th>
+                <th>No. Bukti</th>
+                <th>Keterangan</th>
+                <th>Debit</th>
+                <th>Kredit</th>
+                <th>Saldo Akhir</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr style="font-weight: bold; background-color: #f9f9f9;">
+                <td>' . Carbon::parse($ledgerStartDate)->format('d/m/Y') . '</td>
+                <td>-</td>
+                <td>SALDO AWAL (Opening Balance)</td>
+                <td>-</td>
+                <td>-</td>
+                <td>Rp ' . number_format($ledgerStartingBalance, 0, ',', '.') . '</td>
+            </tr>';
+
+        $totalDebit = 0;
+        $totalCredit = 0;
+
+        foreach ($ledgerEntries as $entry) {
+            $totalDebit += $entry->debit;
+            $totalCredit += $entry->credit;
+
+            $html .= '<tr>
+                <td>' . $entry->transaction_date->format('d/m/Y') . '</td>
+                <td class="tx-number">' . htmlspecialchars($entry->transaction_number) . '</td>
+                <td>' . htmlspecialchars($entry->description ?? '-') . '</td>
+                <td>' . ($entry->debit > 0 ? 'Rp ' . number_format($entry->debit, 0, ',', '.') : '-') . '</td>
+                <td>' . ($entry->credit > 0 ? 'Rp ' . number_format($entry->credit, 0, ',', '.') : '-') . '</td>
+                <td>Rp ' . number_format($entry->running_balance, 0, ',', '.') . '</td>
+            </tr>';
+        }
+
+        $html .= '<tr style="font-weight: bold; background-color: #f2f2f2;">
+                <td>' . Carbon::parse($ledgerEndDate)->format('d/m/Y') . '</td>
+                <td>-</td>
+                <td>SALDO AKHIR (Closing Balance)</td>
+                <td>' . ($totalDebit > 0 ? 'Rp ' . number_format($totalDebit, 0, ',', '.') : '-') . '</td>
+                <td>' . ($totalCredit > 0 ? 'Rp ' . number_format($totalCredit, 0, ',', '.') : '-') . '</td>
+                <td>Rp ' . number_format($ledgerEndingBalance, 0, ',', '.') . '</td>
+            </tr>
+        </tbody>
+    </table>
+</body>
+</html>';
+
+        $filename = "laporan_buku_besar_" . $ledgerAccount->code . "_" . now()->format('YmdHis') . ".xls";
+
+        return response($html)
+            ->header('Content-Type', 'application/vnd.ms-excel; charset=utf-8')
+            ->header('Content-Disposition', 'attachment; filename=' . $filename)
+            ->header('Pragma', 'no-cache')
+            ->header('Cache-Control', 'must-revalidate, post-check=0, pre-check=0')
+            ->header('Expires', '0');
+    }
+
+    /**
      * Update the specified transaction in storage.
      */
     public function editTransaction(Request $request, int $id): RedirectResponse

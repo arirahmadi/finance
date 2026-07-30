@@ -9,7 +9,8 @@ FTP_PASS = "Arirahmadi123$"
 
 files_to_upload = [
     ("app/Http/Controllers/Web/WebController.php", "app/Http/Controllers/Web/WebController.php"),
-    ("resources/views/dashboard.blade.php", "resources/views/dashboard.blade.php")
+    ("resources/views/dashboard.blade.php", "resources/views/dashboard.blade.php"),
+    ("routes/web.php", "routes/web.php")
 ]
 
 print("Connecting to FTP Hostinger...")
