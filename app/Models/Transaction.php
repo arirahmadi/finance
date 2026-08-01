@@ -28,6 +28,7 @@ class Transaction extends Model
         'reimbursement_status',
         'transfer_proof_path',
         'is_transferred',
+        'approval_status',
         'amount',
         'transferred_amount',
         'created_by'
@@ -41,6 +42,11 @@ class Transaction extends Model
         'is_reimbursement' => 'boolean',
         'is_transferred' => 'boolean',
     ];
+
+    public function approvals(): HasMany
+    {
+        return $this->hasMany(TransactionApproval::class);
+    }
 
     public function journalEntries(): HasMany
     {

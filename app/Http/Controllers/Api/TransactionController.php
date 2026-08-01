@@ -31,7 +31,7 @@ class TransactionController extends Controller
         $startDate = $request->start_date ? Carbon::parse($request->start_date)->startOfDay() : null;
         $endDate = $request->end_date ? Carbon::parse($request->end_date)->endOfDay() : null;
 
-        $query = Transaction::with(['journalEntries.account', 'attachments', 'creator'])
+        $query = Transaction::with(['journalEntries.account', 'attachments', 'creator', 'approvals.user'])
             ->orderBy('transaction_date', 'desc')
             ->orderBy('id', 'desc');
 
@@ -81,10 +81,12 @@ class TransactionController extends Controller
                 $amount = floatval($tx->journalEntries->first()->amount);
             }
 
-            if ($type === 'in') {
-                $totalIn += $amount;
-            } elseif ($type === 'out') {
-                $totalOut += $amount;
+            if ($tx->approval_status === 'approved') {
+                if ($type === 'in') {
+                    $totalIn += $amount;
+                } elseif ($type === 'out') {
+                    $totalOut += $amount;
+                }
             }
 
             return [
@@ -115,6 +117,8 @@ class TransactionController extends Controller
                 'is_transferred' => $tx->is_transferred ? true : false,
                 'transferred_amount' => $tx->transferred_amount ? floatval($tx->transferred_amount) : null,
                 'raw_journal_entries' => $tx->journalEntries,
+                'approval_status' => $tx->approval_status,
+                'approvals' => $tx->approvals,
             ];
         });
 
@@ -202,6 +206,7 @@ class TransactionController extends Controller
                 'reimbursement_status' => $isReimbursement ? ($request->reimbursement_status ?: 'pending') : null,
                 'transfer_proof_path' => $transferProofPath,
                 'is_transferred' => $isTransferred,
+                'approval_status' => 'pending',
                 'created_by' => $userId,
             ]);
 
@@ -286,7 +291,7 @@ class TransactionController extends Controller
      */
     public function show(int $id): JsonResponse
     {
-        $transaction = Transaction::with(['journalEntries.account', 'attachments', 'creator'])
+        $transaction = Transaction::with(['journalEntries.account', 'attachments', 'creator', 'approvals.user'])
             ->findOrFail($id);
 
         return response()->json([
@@ -462,6 +467,7 @@ class TransactionController extends Controller
                 'is_advance' => true,
                 'advance_status' => 'open',
                 'is_transferred' => $request->has('is_transferred') ? filter_var($request->is_transferred, FILTER_VALIDATE_BOOLEAN) : false,
+                'approval_status' => 'pending',
                 'created_by' => Auth::id(),
             ]);
 
@@ -633,6 +639,7 @@ class TransactionController extends Controller
                 'is_transferred' => $isTransferred,
                 'amount' => $amount,
                 'transferred_amount' => $transferredAmount,
+                'approval_status' => 'pending',
                 'created_by' => Auth::id(),
             ]);
 
@@ -726,6 +733,8 @@ class TransactionController extends Controller
                 'is_advance' => false,
                 'is_loan' => false,
                 'loan_parent_id' => $loan->id,
+                'amount' => $amount,
+                'approval_status' => 'pending',
                 'created_by' => Auth::id(),
             ]);
 
@@ -741,12 +750,6 @@ class TransactionController extends Controller
                 'account_id' => $loanAccount->id,
                 'type' => 'credit',
                 'amount' => $amount,
-            ]);
-
-            $newRepaid = $currentRepaid + $amount;
-            $loan->update([
-                'loan_repaid_amount' => $newRepaid,
-                'loan_status' => ($newRepaid >= $loanAmount) ? 'repaid' : 'open',
             ]);
 
             return $repTx;
@@ -812,7 +815,8 @@ class TransactionController extends Controller
         $priorEntries = JournalEntry::with('transaction')
             ->where('account_id', $accountId)
             ->whereHas('transaction', function($q) use ($startCarbon) {
-                $q->where('transaction_date', '<', $startCarbon);
+                $q->where('transaction_date', '<', $startCarbon)
+                  ->where('approval_status', 'approved');
             })->get()->filter(function($entry) {
                 $tx = $entry->transaction;
                 if (!$tx) return false;
@@ -842,7 +846,8 @@ class TransactionController extends Controller
         $rawEntries = JournalEntry::with(['transaction.creator', 'transaction'])
             ->where('account_id', $accountId)
             ->whereHas('transaction', function($q) use ($startCarbon, $endCarbon) {
-                $q->whereBetween('transaction_date', [$startCarbon, $endCarbon]);
+                $q->whereBetween('transaction_date', [$startCarbon, $endCarbon])
+                  ->where('approval_status', 'approved');
             })->get()->filter(function($entry) {
                 $tx = $entry->transaction;
                 if (!$tx) return false;
@@ -1016,6 +1021,71 @@ class TransactionController extends Controller
             'success' => true,
             'message' => 'Transaksi berhasil ditandai sudah ditransfer.',
             'data' => $tx,
+        ]);
+    }
+
+    /**
+     * Approve a pending transaction (requires 3 approvals from users with 'approve_transactions' permission).
+     */
+    public function approve(Request $request, int $id): JsonResponse
+    {
+        if (!$request->user()->hasPermission('approve_transactions')) {
+            return response()->json([
+                'message' => 'Akses Ditolak: Anda tidak memiliki izin untuk menyetujui transaksi.'
+            ], 403);
+        }
+
+        $tx = Transaction::findOrFail($id);
+        if ($tx->approval_status !== 'pending') {
+            return response()->json([
+                'message' => 'Transaksi ini sudah disetujui atau diproses.'
+            ], 400);
+        }
+
+        $userId = $request->user()->id;
+        $exists = \App\Models\TransactionApproval::where('transaction_id', $tx->id)
+            ->where('user_id', $userId)
+            ->exists();
+
+        if ($exists) {
+            return response()->json([
+                'message' => 'Anda sudah menyetujui transaksi ini sebelumnya.'
+            ], 400);
+        }
+
+        DB::transaction(function () use ($tx, $userId) {
+            \App\Models\TransactionApproval::create([
+                'transaction_id' => $tx->id,
+                'user_id' => $userId,
+            ]);
+
+            $approvalsCount = \App\Models\TransactionApproval::where('transaction_id', $tx->id)->count();
+            if ($approvalsCount >= 3) {
+                $tx->update(['approval_status' => 'approved']);
+
+                // If this is a repayment, update the parent loan
+                if ($tx->loan_parent_id) {
+                    $loan = Transaction::findOrFail($tx->loan_parent_id);
+                    $loanAmount = floatval($loan->amount);
+                    $approvedRepaymentsSum = Transaction::where('loan_parent_id', $loan->id)
+                        ->where('approval_status', 'approved')
+                        ->sum('amount');
+
+                    $loan->update([
+                        'loan_repaid_amount' => $approvedRepaymentsSum,
+                        'loan_status' => ($approvedRepaymentsSum >= $loanAmount) ? 'repaid' : 'open',
+                    ]);
+                }
+            }
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Persetujuan berhasil disimpan.',
+            'data' => [
+                'approval_status' => $tx->fresh()->approval_status,
+                'approvals_count' => $tx->approvals()->count(),
+            ]
         ]);
     }
 }

@@ -588,6 +588,16 @@
                                                 @endif
                                                 <td class="tx-number">
                                                     {{ $tx->transaction_number }}
+                                                    @if ($tx->approval_status === 'pending')
+                                                        <div style="margin-top: 4px;">
+                                                            <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.65rem; padding: 1px 4px; display: inline-block;">Pending Approval ({{ $tx->approvals->count() }}/3)</span>
+                                                        </div>
+                                                        @if ($tx->approvals->isNotEmpty())
+                                                            <div style="font-size: 0.65rem; color: var(--text-muted); margin-top: 2px;" title="{{ $tx->approvals->map(fn($a) => $a->user->name)->implode(', ') }}">
+                                                                Oleh: {{ $tx->approvals->map(fn($a) => $a->user->name)->implode(', ') }}
+                                                            </div>
+                                                        @endif
+                                                    @endif
                                                 </td>
                                                 <td>{{ $tx->transaction_date->format('d/m/Y') }}</td>
                                                 <td>
@@ -668,6 +678,37 @@
                                                 </td>
                                                 <td>
                                                     <div style="display: flex; gap: 4px;">
+                                                        <!-- Approve button -->
+                                                        @if ($tx->approval_status === 'pending' && Auth::user()->hasPermission('approve_transactions'))
+                                                            @if (!$tx->approvals->contains('user_id', Auth::id()))
+                                                                <form action="{{ route('web.transactions.approve', $tx->id) }}" method="POST" style="display: inline;">
+                                                                    @csrf
+                                                                    <button 
+                                                                        type="submit" 
+                                                                        class="btn-action" 
+                                                                        style="background: rgba(59, 130, 246, 0.1); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.2);"
+                                                                        title="Setujui Transaksi (Approve)"
+                                                                    >
+                                                                        <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                        </svg>
+                                                                    </button>
+                                                                </form>
+                                                            @else
+                                                                <button 
+                                                                    type="button" 
+                                                                    class="btn-action" 
+                                                                    style="background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); cursor: not-allowed;"
+                                                                    title="Sudah Anda Setujui"
+                                                                    disabled
+                                                                >
+                                                                    <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                                                    </svg>
+                                                                </button>
+                                                            @endif
+                                                        @endif
+
                                                         <!-- Reimbursement transfer button -->
                                                         @if ($tx->is_reimbursement && $tx->reimbursement_status === 'pending' && Auth::user()->hasPermission('edit_transactions'))
                                                             <button 
@@ -857,13 +898,24 @@
                                 <tbody>
                                     @if(isset($advances) && $advances->isNotEmpty())
                                         @foreach ($advances as $adv)
-                                            <tr>
                                                 @if (Auth::user()->hasPermission('delete_settlements'))
                                                     <td style="text-align: center;">
                                                         <input type="checkbox" class="settlement-checkbox" value="{{ $adv->id }}" style="cursor: pointer;" onclick="updateBulkDeleteSettlementsState()">
                                                     </td>
                                                 @endif
-                                                <td class="tx-number">{{ $adv->transaction_number }}</td>
+                                                <td class="tx-number">
+                                                    {{ $adv->transaction_number }}
+                                                    @if ($adv->approval_status === 'pending')
+                                                        <div style="margin-top: 4px;">
+                                                            <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.65rem; padding: 1px 4px; display: inline-block;">Pending Approval ({{ $adv->approvals->count() }}/3)</span>
+                                                        </div>
+                                                        @if ($adv->approvals->isNotEmpty())
+                                                            <div style="font-size: 0.65rem; color: var(--text-muted); margin-top: 2px;" title="{{ $adv->approvals->map(fn($a) => $a->user->name)->implode(', ') }}">
+                                                                Oleh: {{ $adv->approvals->map(fn($a) => $a->user->name)->implode(', ') }}
+                                                            </div>
+                                                        @endif
+                                                    @endif
+                                                </td>
                                                 <td>{{ $adv->transaction_date->format('d/m/Y') }}</td>
                                                 <td><span style="font-weight: 600; color: var(--text-secondary);">{{ $adv->recipient_name ?? '-' }}</span></td>
                                                 <td><span class="amount-out">Rp {{ number_format($adv->amount, 0, ',', '.') }}</span></td>
@@ -900,6 +952,26 @@
                                                 </td>
                                                 <td>
                                                     <div style="display: flex; gap: 4px; align-items: center;">
+                                                        <!-- Approve button -->
+                                                        @if ($adv->approval_status === 'pending' && Auth::user()->hasPermission('approve_transactions'))
+                                                            @if (!$adv->approvals->contains('user_id', Auth::id()))
+                                                                <form action="{{ route('web.transactions.approve', $adv->id) }}" method="POST" style="display: inline;">
+                                                                    @csrf
+                                                                    <button type="submit" class="btn-action" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.2);" title="Setujui Transaksi (Approve)">
+                                                                        <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                        </svg>
+                                                                    </button>
+                                                                </form>
+                                                            @else
+                                                                <button type="button" class="btn-action" style="background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); cursor: not-allowed;" title="Sudah Anda Setujui" disabled>
+                                                                    <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                                                    </svg>
+                                                                </button>
+                                                            @endif
+                                                        @endif
+
                                                         @if ($adv->advance_status === 'open')
                                                             @if (Auth::user()->hasPermission('process_settlements'))
                                                                 <button type="button" class="btn btn-success btn-sm" style="font-weight: 600; padding: 6px 12px; border-radius: 6px;" onclick="openSettleModal({{ $adv->id }}, '{{ $adv->transaction_number }}', {{ $adv->amount }}, '{{ addslashes($adv->recipient_name) }}')">
@@ -1055,7 +1127,19 @@
                                                         </button>
                                                     @endif
                                                 </td>
-                                                <td class="tx-number">{{ $loan->transaction_number }}</td>
+                                                <td class="tx-number">
+                                                    {{ $loan->transaction_number }}
+                                                    @if ($loan->approval_status === 'pending')
+                                                        <div style="margin-top: 4px;">
+                                                            <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.65rem; padding: 1px 4px; display: inline-block;">Pending Approval ({{ $loan->approvals->count() }}/3)</span>
+                                                        </div>
+                                                        @if ($loan->approvals->isNotEmpty())
+                                                            <div style="font-size: 0.65rem; color: var(--text-muted); margin-top: 2px;" title="{{ $loan->approvals->map(fn($a) => $a->user->name)->implode(', ') }}">
+                                                                Oleh: {{ $loan->approvals->map(fn($a) => $a->user->name)->implode(', ') }}
+                                                            </div>
+                                                        @endif
+                                                    @endif
+                                                </td>
                                                 <td>{{ $loan->transaction_date->format('d/m/Y') }}</td>
                                                 <td style="font-weight: 600; color: var(--text-primary);">{{ $loan->recipient_name }}</td>
                                                 <td style="font-weight: 600;">Rp {{ number_format($loan->amount, 0, ',', '.') }}</td>
@@ -1080,6 +1164,26 @@
                                                 </td>
                                                 <td>
                                                     <div class="action-buttons-group">
+                                                        <!-- Approve button -->
+                                                        @if ($loan->approval_status === 'pending' && Auth::user()->hasPermission('approve_transactions'))
+                                                            @if (!$loan->approvals->contains('user_id', Auth::id()))
+                                                                <form action="{{ route('web.transactions.approve', $loan->id) }}" method="POST" style="display: inline;">
+                                                                    @csrf
+                                                                    <button type="submit" class="btn-action" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.2);" title="Setujui Transaksi (Approve)">
+                                                                        <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                        </svg>
+                                                                    </button>
+                                                                </form>
+                                                            @else
+                                                                <button type="button" class="btn-action" style="background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); cursor: not-allowed;" title="Sudah Anda Setujui" disabled>
+                                                                    <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                                                    </svg>
+                                                                </button>
+                                                            @endif
+                                                        @endif
+
                                                         @if (Auth::user()->hasPermission('create_cash_advances'))
                                                             <button 
                                                                 type="button" 
@@ -1154,26 +1258,60 @@
                                                                 <tbody>
                                                                     @foreach ($loan->repayments as $rep)
                                                                         <tr>
-                                                                            <td class="tx-number">{{ $rep->transaction_number }}</td>
+                                                                            <td class="tx-number">
+                                                                             {{ $rep->transaction_number }}
+                                                                             @if ($rep->approval_status === 'pending')
+                                                                                 <div style="margin-top: 4px;">
+                                                                                     <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.65rem; padding: 1px 4px; display: inline-block;">Pending ({{ $rep->approvals->count() }}/3)</span>
+                                                                                 </div>
+                                                                                 @if ($rep->approvals->isNotEmpty())
+                                                                                     <div style="font-size: 0.65rem; color: var(--text-muted); margin-top: 2px;" title="{{ $rep->approvals->map(fn($a) => $a->user->name)->implode(', ') }}">
+                                                                                         Oleh: {{ $rep->approvals->map(fn($a) => $a->user->name)->implode(', ') }}
+                                                                                     </div>
+                                                                                 @endif
+                                                                             @endif
+                                                                         </td>
                                                                             <td>{{ $rep->transaction_date->format('d/m/Y') }}</td>
                                                                             <td style="font-weight: 600; color: #34d399;">Rp {{ number_format($rep->amount, 0, ',', '.') }}</td>
                                                                             <td>{{ $rep->destination_account }}</td>
                                                                             <td>{{ $rep->description }}</td>
                                                                             <td>{{ $rep->creator }}</td>
                                                                             <td style="text-align: center;">
-                                                                                @if (Auth::user()->hasPermission('delete_cash_advances'))
-                                                                                    <form action="/cash-advances/repay/{{ $rep->id }}" method="POST" style="display: inline;" onsubmit="return confirm('Apakah Anda yakin ingin menghapus angsuran {{ $rep->transaction_number }}?')">
-                                                                                        @csrf
-                                                                                        @method('DELETE')
-                                                                                        <button type="submit" class="btn-action btn-action-delete" title="Hapus Angsuran" style="padding: 2px 6px;">
-                                                                                            <svg style="width: 14px; height: 14px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                                                            </svg>
-                                                                                        </button>
-                                                                                    </form>
-                                                                                @else
-                                                                                    <span style="color: var(--text-muted); font-size: 0.75rem;">No Izin</span>
-                                                                                @endif
+                                                                                <div style="display: flex; gap: 4px; justify-content: center; align-items: center;">
+                                                                                    <!-- Approve button -->
+                                                                                    @if ($rep->approval_status === 'pending' && Auth::user()->hasPermission('approve_transactions'))
+                                                                                        @if (!$rep->approvals->contains('user_id', Auth::id()))
+                                                                                            <form action="{{ route('web.transactions.approve', $rep->id) }}" method="POST" style="display: inline;">
+                                                                                                @csrf
+                                                                                                <button type="submit" class="btn-action" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.2); padding: 2px 6px;" title="Setujui Angsuran (Approve)">
+                                                                                                    <svg style="width: 14px; height: 14px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                                                    </svg>
+                                                                                                </button>
+                                                                                            </form>
+                                                                                        @else
+                                                                                            <button type="button" class="btn-action" style="background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); cursor: not-allowed; padding: 2px 6px;" title="Sudah Anda Setujui" disabled>
+                                                                                                <svg style="width: 14px; height: 14px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                                                                                </svg>
+                                                                                            </button>
+                                                                                        @endif
+                                                                                    @endif
+
+                                                                                    @if (Auth::user()->hasPermission('delete_cash_advances'))
+                                                                                        <form action="/cash-advances/repay/{{ $rep->id }}" method="POST" style="display: inline;" onsubmit="return confirm('Apakah Anda yakin ingin menghapus angsuran {{ $rep->transaction_number }}?')">
+                                                                                            @csrf
+                                                                                            @method('DELETE')
+                                                                                            <button type="submit" class="btn-action btn-action-delete" title="Hapus Angsuran" style="padding: 2px 6px;">
+                                                                                                <svg style="width: 14px; height: 14px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                                                </svg>
+                                                                                            </button>
+                                                                                        </form>
+                                                                                    @else
+                                                                                        <span style="color: var(--text-muted); font-size: 0.75rem;">No Izin</span>
+                                                                                    @endif
+                                                                                </div>
                                                                             </td>
                                                                         </tr>
                                                                     @endforeach
@@ -1430,6 +1568,7 @@
                                                                     'create_transactions' => 'Tambah Transaksi',
                                                                     'edit_transactions' => 'Ubah Transaksi',
                                                                     'delete_transactions' => 'Hapus Transaksi',
+                                                                    'approve_transactions' => 'Persetujuan Transaksi',
                                                                     'view_settlements' => 'Lihat Settlement',
                                                                     'create_settlements' => 'Tambah Settlement',
                                                                     'process_settlements' => 'Proses Settle',
@@ -1817,6 +1956,9 @@
                                 </label>
                                 <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 0.9rem;">
                                     <input type="checkbox" name="permissions[]" value="delete_transactions" class="perm-checkbox"> Hapus Transaksi (Delete)
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 0.9rem;">
+                                    <input type="checkbox" name="permissions[]" value="approve_transactions" class="perm-checkbox"> Persetujuan Transaksi (Approve)
                                 </label>
                                 <hr style="border: 0; border-top: 1px solid var(--border-glass); margin: 6px 0;">
                                 <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 0.9rem;">

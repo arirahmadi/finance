@@ -22,6 +22,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/transactions/{id}', [TransactionController::class, 'update']);
     Route::delete('/transactions/{id}', [TransactionController::class, 'destroy']);
     Route::post('/transactions/{id}/mark-transferred', [TransactionController::class, 'markTransferred']);
+    Route::post('/transactions/{id}/approve', [TransactionController::class, 'approve']);
 
     // Settlement (Advance / Uang Muka)
     Route::post('/settlements/advance', [TransactionController::class, 'storeAdvance']);

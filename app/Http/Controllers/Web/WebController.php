@@ -70,7 +70,7 @@ class WebController extends Controller
         $startDate = $request->input('start_date');
         $endDate = $request->input('end_date');
 
-        $query = Transaction::with(['journalEntries.account', 'attachments', 'creator'])
+        $query = Transaction::with(['journalEntries.account', 'attachments', 'creator', 'approvals.user'])
             ->where('is_advance', false)
             ->where('is_loan', false)
             ->whereNull('loan_parent_id')
@@ -126,14 +126,16 @@ class WebController extends Controller
                 ? ($tx->reimbursement_status === 'transferred')
                 : ($tx->is_transferred ? true : false);
 
-            if ($type === 'in') {
-                $totalIn += $amount;
-            } elseif ($type === 'out') {
-                $totalOut += $amount;
-                if ($isTransferredValue) {
-                    $totalOutTransferred += $amount;
-                } else {
-                    $totalOutEstimated += $amount;
+            if ($tx->approval_status === 'approved') {
+                if ($type === 'in') {
+                    $totalIn += $amount;
+                } elseif ($type === 'out') {
+                    $totalOut += $amount;
+                    if ($isTransferredValue) {
+                        $totalOutTransferred += $amount;
+                    } else {
+                        $totalOutEstimated += $amount;
+                    }
                 }
             }
 
@@ -155,6 +157,8 @@ class WebController extends Controller
                 'attachments' => $tx->attachments,
                 'creator' => $tx->creator->name ?? null,
                 'is_transferred' => $isTransferredValue,
+                'approval_status' => $tx->approval_status,
+                'approvals' => $tx->approvals,
             ];
         });
 
@@ -170,13 +174,15 @@ class WebController extends Controller
                     'uang_keluar_prakiraan' => 0.0,
                 ];
             }
-            if ($tx->type === 'in') {
-                $categorySummaryData[$catName]->uang_masuk += $tx->amount;
-            } elseif ($tx->type === 'out') {
-                if ($tx->is_transferred) {
-                    $categorySummaryData[$catName]->uang_keluar_transfer += $tx->amount;
-                } else {
-                    $categorySummaryData[$catName]->uang_keluar_prakiraan += $tx->amount;
+            if ($tx->approval_status === 'approved') {
+                if ($tx->type === 'in') {
+                    $categorySummaryData[$catName]->uang_masuk += $tx->amount;
+                } elseif ($tx->type === 'out') {
+                    if ($tx->is_transferred) {
+                        $categorySummaryData[$catName]->uang_keluar_transfer += $tx->amount;
+                    } else {
+                        $categorySummaryData[$catName]->uang_keluar_prakiraan += $tx->amount;
+                    }
                 }
             }
         }
@@ -196,7 +202,7 @@ class WebController extends Controller
         }
 
         // Load advances for Settlements tab
-        $advances = Transaction::with(['journalEntries.account', 'attachments', 'creator'])
+        $advances = Transaction::with(['journalEntries.account', 'attachments', 'creator', 'approvals.user'])
             ->where('is_advance', true)
             ->orderBy('transaction_date', 'desc')
             ->get();
@@ -223,10 +229,12 @@ class WebController extends Controller
                 $amount = floatval($tx->journalEntries->first()->amount);
             }
 
-            if ($tx->advance_status === 'open') {
-                $totalOutstanding += $amount;
-            } else {
-                $totalSettled += $amount;
+            if ($tx->approval_status === 'approved') {
+                if ($tx->advance_status === 'open') {
+                    $totalOutstanding += $amount;
+                } else {
+                    $totalSettled += $amount;
+                }
             }
 
             $settlementAttachment = null;
@@ -250,6 +258,8 @@ class WebController extends Controller
                 'recipient_name' => $tx->recipient_name,
                 'is_transferred' => $tx->is_transferred,
                 'expense_account_id' => $expenseAccountId,
+                'approval_status' => $tx->approval_status,
+                'approvals' => $tx->approvals,
             ];
         });
 
@@ -259,7 +269,7 @@ class WebController extends Controller
         ];
 
         // Load Cash Advances (Pinjaman Karyawan)
-        $loans = Transaction::with(['journalEntries.account', 'creator', 'repayments.journalEntries.account', 'repayments.creator'])
+        $loans = Transaction::with(['journalEntries.account', 'creator', 'repayments.journalEntries.account', 'repayments.creator', 'repayments.approvals.user', 'approvals.user'])
             ->where('is_loan', true)
             ->orderBy('transaction_date', 'desc')
             ->get();
@@ -284,10 +294,12 @@ class WebController extends Controller
                 $amount = floatval($tx->journalEntries->first()->amount);
             }
 
-            if ($tx->is_transferred) {
-                $totalLoanTransferred += floatval($tx->transferred_amount ?: $amount);
-            } else {
-                $totalLoanEstimated += $amount;
+            if ($tx->approval_status === 'approved') {
+                if ($tx->is_transferred) {
+                    $totalLoanTransferred += floatval($tx->transferred_amount ?: $amount);
+                } else {
+                    $totalLoanEstimated += $amount;
+                }
             }
 
             $paymentSource = '';
@@ -304,11 +316,13 @@ class WebController extends Controller
             $repaidAmount = floatval($tx->loan_repaid_amount);
             $remainingAmount = $baseAmount - $repaidAmount;
 
-            if ($tx->loan_status === 'repaid') {
-                $totalRepaidLoans += $amount;
-            } else {
-                if ($tx->is_transferred) {
-                    $totalOutstandingLoans += $remainingAmount;
+            if ($tx->approval_status === 'approved') {
+                if ($tx->loan_status === 'repaid') {
+                    $totalRepaidLoans += $amount;
+                } else {
+                    if ($tx->is_transferred) {
+                        $totalOutstandingLoans += $remainingAmount;
+                    }
                 }
             }
 
@@ -337,6 +351,8 @@ class WebController extends Controller
                         'amount' => $repAmount,
                         'destination_account' => $destAccount,
                         'creator' => $rep->creator->name ?? null,
+                        'approval_status' => $rep->approval_status,
+                        'approvals' => $rep->approvals,
                     ];
                 });
 
@@ -356,6 +372,8 @@ class WebController extends Controller
                 'repayments' => $repayments,
                 'is_transferred' => $tx->is_transferred,
                 'transferred_amount' => floatval($tx->transferred_amount),
+                'approval_status' => $tx->approval_status,
+                'approvals' => $tx->approvals,
             ];
         });
 
@@ -625,6 +643,7 @@ class WebController extends Controller
                 'transfer_proof_path' => $transferProofPath,
                 'created_by' => $userId,
                 'is_transferred' => $isTransferred,
+                'approval_status' => 'pending',
             ]);
 
             // Post Jurnal Double Entry
@@ -908,7 +927,8 @@ class WebController extends Controller
         $priorEntries = JournalEntry::with('transaction')
             ->where('account_id', $ledgerAccountId)
             ->whereHas('transaction', function($q) use ($startCarbon) {
-                $q->where('transaction_date', '<', $startCarbon);
+                $q->where('transaction_date', '<', $startCarbon)
+                  ->where('approval_status', 'approved');
             })->get()->filter(function($entry) {
                 $tx = $entry->transaction;
                 if (!$tx) return false;
@@ -939,7 +959,8 @@ class WebController extends Controller
         $rawEntries = JournalEntry::with(['transaction.creator', 'transaction'])
             ->where('account_id', $ledgerAccountId)
             ->whereHas('transaction', function($q) use ($startCarbon, $endCarbon) {
-                $q->whereBetween('transaction_date', [$startCarbon, $endCarbon]);
+                $q->whereBetween('transaction_date', [$startCarbon, $endCarbon])
+                  ->where('approval_status', 'approved');
             })->get()->filter(function($entry) {
                 $tx = $entry->transaction;
                 if (!$tx) return false;
@@ -1382,6 +1403,7 @@ class WebController extends Controller
                 'advance_status' => 'open',
                 'created_by' => Auth::id(),
                 'is_transferred' => $request->has('is_transferred'),
+                'approval_status' => 'pending',
             ]);
 
             // 2. Double-Entry Bookkeeping:
@@ -1767,6 +1789,7 @@ class WebController extends Controller
                 'is_transferred' => $isTransferred,
                 'amount' => $amount,
                 'transferred_amount' => $transferredAmount,
+                'approval_status' => 'pending',
             ]);
 
             if ($isTransferred) {
@@ -1959,6 +1982,8 @@ class WebController extends Controller
                     'is_advance' => false,
                     'is_loan' => false,
                     'loan_parent_id' => $loan->id,
+                    'amount' => $amount,
+                    'approval_status' => 'pending',
                     'created_by' => Auth::id(),
                 ]);
 
@@ -1978,13 +2003,6 @@ class WebController extends Controller
                     'amount' => $amount,
                 ]);
             }
-
-            $newRemaining = max(0.0, $remainingAmountInput - $amount);
-            $newRepaid = max(0.0, $loanAmount - $newRemaining);
-            $loan->update([
-                'loan_repaid_amount' => $newRepaid,
-                'loan_status' => ($newRemaining <= 0) ? 'repaid' : 'open',
-            ]);
         });
 
         return redirect()->route('dashboard', ['activeTab' => 'cash-advances'])->with('success', 'Pembayaran angsuran berhasil dicatat!');
@@ -2015,7 +2033,10 @@ class WebController extends Controller
 
             $rep->delete();
 
-            $newRepaid = max(0, floatval($loan->loan_repaid_amount) - $repAmount);
+            $approvedRepaymentsSum = Transaction::where('loan_parent_id', $loan->id)
+                ->where('id', '!=', $rep->id)
+                ->where('approval_status', 'approved')
+                ->sum('amount');
             
             $loanAmount = 0;
             foreach ($loan->journalEntries as $entry) {
@@ -2028,8 +2049,8 @@ class WebController extends Controller
             }
 
             $loan->update([
-                'loan_repaid_amount' => $newRepaid,
-                'loan_status' => ($newRepaid >= $loanAmount) ? 'repaid' : 'open',
+                'loan_repaid_amount' => $approvedRepaymentsSum,
+                'loan_status' => ($approvedRepaymentsSum >= $loanAmount) ? 'repaid' : 'open',
             ]);
         });
 
@@ -2217,5 +2238,65 @@ class WebController extends Controller
         $employee->delete();
 
         return redirect()->route('dashboard', ['activeTab' => 'employee'])->with('success', 'Karyawan berhasil dihapus!');
+    }
+
+    /**
+     * Approve a pending transaction (Web version).
+     */
+    public function approveTransaction(Request $request, int $id): RedirectResponse
+    {
+        if (!Auth::user()->hasPermission('approve_transactions')) {
+            return back()->withErrors(['auth' => 'Anda tidak memiliki hak akses untuk menyetujui transaksi.']);
+        }
+
+        $tx = Transaction::findOrFail($id);
+        if ($tx->approval_status !== 'pending') {
+            return back()->withErrors(['error' => 'Transaksi ini sudah disetujui atau diproses.']);
+        }
+
+        $userId = Auth::id();
+        $exists = \App\Models\TransactionApproval::where('transaction_id', $tx->id)
+            ->where('user_id', $userId)
+            ->exists();
+
+        if ($exists) {
+            return back()->withErrors(['error' => 'Anda sudah menyetujui transaksi ini sebelumnya.']);
+        }
+
+        DB::transaction(function () use ($tx, $userId) {
+            \App\Models\TransactionApproval::create([
+                'transaction_id' => $tx->id,
+                'user_id' => $userId,
+            ]);
+
+            $approvalsCount = \App\Models\TransactionApproval::where('transaction_id', $tx->id)->count();
+            if ($approvalsCount >= 3) {
+                $tx->update(['approval_status' => 'approved']);
+
+                // If this is a repayment, update the parent loan
+                if ($tx->loan_parent_id) {
+                    $loan = Transaction::findOrFail($tx->loan_parent_id);
+                    $loanAmount = floatval($loan->amount);
+                    $approvedRepaymentsSum = Transaction::where('loan_parent_id', $loan->id)
+                        ->where('approval_status', 'approved')
+                        ->sum('amount');
+
+                    $loan->update([
+                        'loan_repaid_amount' => $approvedRepaymentsSum,
+                        'loan_status' => ($approvedRepaymentsSum >= $loanAmount) ? 'repaid' : 'open',
+                    ]);
+                }
+            }
+        });
+
+        // Determine active tab to redirect back to
+        $activeTab = 'transactions';
+        if ($tx->is_advance) {
+            $activeTab = 'settlements';
+        } elseif ($tx->is_loan || $tx->loan_parent_id) {
+            $activeTab = 'cash-advances';
+        }
+
+        return redirect()->route('dashboard', ['activeTab' => $activeTab])->with('success', 'Transaksi berhasil disetujui!');
     }
 }

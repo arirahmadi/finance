@@ -45,6 +45,7 @@ Route::middleware('auth')->group(function () {
     Route::put('/transactions/{id}', [WebController::class, 'editTransaction'])->name('web.transactions.update');
     Route::delete('/transactions/{id}', [WebController::class, 'deleteTransaction'])->name('web.transactions.destroy');
     Route::post('/transactions/{id}/transfer-reimburse', [WebController::class, 'transferReimbursement'])->name('web.transactions.transferReimbursement');
+    Route::post('/transactions/{id}/approve', [WebController::class, 'approveTransaction'])->name('web.transactions.approve');
     Route::get('/export/csv', [WebController::class, 'exportCsv'])->name('web.export.csv');
     Route::get('/export/transactions/xls', [WebController::class, 'exportTransactionsXls'])->name('web.export.transactions.xls');
     Route::get('/export/ledger/xls', [WebController::class, 'exportLedgerXls'])->name('web.export.ledger.xls');
