@@ -126,16 +126,19 @@ class WebController extends Controller
                 ? ($tx->reimbursement_status === 'transferred')
                 : ($tx->is_transferred ? true : false);
 
-            if ($tx->approval_status === 'approved') {
-                if ($type === 'in') {
+            if ($type === 'in') {
+                if ($tx->approval_status === 'approved') {
                     $totalIn += $amount;
-                } elseif ($type === 'out') {
-                    $totalOut += $amount;
-                    if ($isTransferredValue) {
+                }
+            } elseif ($type === 'out') {
+                if ($isTransferredValue) {
+                    if ($tx->approval_status === 'approved') {
                         $totalOutTransferred += $amount;
-                    } else {
-                        $totalOutEstimated += $amount;
+                        $totalOut += $amount;
                     }
+                } else {
+                    // Semua yang belum ditransfer adalah potensi/prakiraan keluar (baik approved maupun pending)
+                    $totalOutEstimated += $amount;
                 }
             }
 
@@ -492,6 +495,7 @@ class WebController extends Controller
         $widgetTxOut = 0;
         $widgetTxCount = 0;
         foreach ($formattedTransactions as $tx) {
+            if ($tx->approval_status !== 'approved') continue;
             if (!$tx->is_transferred) continue;
             $widgetTxCount++;
             if ($tx->type === 'in') {
@@ -501,19 +505,21 @@ class WebController extends Controller
             }
         }
 
-        // 2. Settlements (is_transferred = true)
+        // 2. Settlements (is_transferred = true & approved)
         $widgetSettlementTotal = 0;
         $widgetSettlementCount = 0;
         foreach ($formattedAdvances as $adv) {
+            if ($adv->approval_status !== 'approved') continue;
             if (!$adv->is_transferred) continue;
             $widgetSettlementCount++;
             $widgetSettlementTotal += $adv->amount;
         }
 
-        // 3. Cash Advances (is_transferred = true) — uses transferred_amount
+        // 3. Cash Advances (is_transferred = true & approved) — uses transferred_amount
         $widgetCaTotal = 0;
         $widgetCaCount = 0;
         foreach ($formattedLoans as $loan) {
+            if ($loan->approval_status !== 'approved') continue;
             if (!$loan->is_transferred) continue;
             $widgetCaCount++;
             // Use transferred_amount if available, otherwise fall back to amount
