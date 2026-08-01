@@ -1008,7 +1008,21 @@ class TransactionController extends Controller
      */
     public function markTransferred(Request $request, int $id): JsonResponse
     {
+        if (strtolower($request->user()->role) !== 'owner') {
+            return response()->json([
+                'message' => 'Akses Ditolak: Hanya Owner yang dapat menandai transaksi sebagai ditransfer.'
+            ], 403);
+        }
+
         $tx = Transaction::findOrFail($id);
+        
+        $approvalsCount = \App\Models\TransactionApproval::where('transaction_id', $tx->id)->count();
+        if ($approvalsCount < 2) {
+            return response()->json([
+                'message' => 'Akses Ditolak: Transaksi belum bisa ditransfer karena memerlukan minimal 2 approval.'
+            ], 400);
+        }
+
         $tx->is_transferred = true;
         
         if ($tx->is_reimbursement) {
