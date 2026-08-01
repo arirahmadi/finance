@@ -590,7 +590,7 @@
                                                     {{ $tx->transaction_number }}
                                                     @if ($tx->approval_status === 'pending')
                                                         <div style="margin-top: 4px;">
-                                                            <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.65rem; padding: 1px 4px; display: inline-block;">Pending Approval ({{ $tx->approvals->count() }}/3)</span>
+                                                            <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.65rem; padding: 1px 4px; display: inline-block;">Pending Approval ({{ $tx->approvals->count() }}/2)</span>
                                                         </div>
                                                         @if ($tx->approvals->isNotEmpty())
                                                             <div style="font-size: 0.65rem; color: var(--text-muted); margin-top: 2px;" title="{{ $tx->approvals->map(fn($a) => $a->user->name)->implode(', ') }}">
@@ -907,7 +907,7 @@
                                                     {{ $adv->transaction_number }}
                                                     @if ($adv->approval_status === 'pending')
                                                         <div style="margin-top: 4px;">
-                                                            <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.65rem; padding: 1px 4px; display: inline-block;">Pending Approval ({{ $adv->approvals->count() }}/3)</span>
+                                                            <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.65rem; padding: 1px 4px; display: inline-block;">Pending Approval ({{ $adv->approvals->count() }}/2)</span>
                                                         </div>
                                                         @if ($adv->approvals->isNotEmpty())
                                                             <div style="font-size: 0.65rem; color: var(--text-muted); margin-top: 2px;" title="{{ $adv->approvals->map(fn($a) => $a->user->name)->implode(', ') }}">
@@ -1131,7 +1131,7 @@
                                                     {{ $loan->transaction_number }}
                                                     @if ($loan->approval_status === 'pending')
                                                         <div style="margin-top: 4px;">
-                                                            <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.65rem; padding: 1px 4px; display: inline-block;">Pending Approval ({{ $loan->approvals->count() }}/3)</span>
+                                                            <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.65rem; padding: 1px 4px; display: inline-block;">Pending Approval ({{ $loan->approvals->count() }}/2)</span>
                                                         </div>
                                                         @if ($loan->approvals->isNotEmpty())
                                                             <div style="font-size: 0.65rem; color: var(--text-muted); margin-top: 2px;" title="{{ $loan->approvals->map(fn($a) => $a->user->name)->implode(', ') }}">
@@ -1262,7 +1262,7 @@
                                                                              {{ $rep->transaction_number }}
                                                                              @if ($rep->approval_status === 'pending')
                                                                                  <div style="margin-top: 4px;">
-                                                                                     <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.65rem; padding: 1px 4px; display: inline-block;">Pending ({{ $rep->approvals->count() }}/3)</span>
+                                                                                     <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.65rem; padding: 1px 4px; display: inline-block;">Pending ({{ $rep->approvals->count() }}/2)</span>
                                                                                  </div>
                                                                                  @if ($rep->approvals->isNotEmpty())
                                                                                      <div style="font-size: 0.65rem; color: var(--text-muted); margin-top: 2px;" title="{{ $rep->approvals->map(fn($a) => $a->user->name)->implode(', ') }}">

@@ -2270,7 +2270,7 @@ class WebController extends Controller
             ]);
 
             $approvalsCount = \App\Models\TransactionApproval::where('transaction_id', $tx->id)->count();
-            if ($approvalsCount >= 3) {
+            if ($approvalsCount >= 2) {
                 $tx->update(['approval_status' => 'approved']);
 
                 // If this is a repayment, update the parent loan
