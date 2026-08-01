@@ -97,9 +97,16 @@ if ($token !== $expected) {
     echo 'FORBIDDEN';
     exit;
 }
-$root = __DIR__ . '/..';
-$out = shell_exec("cd {$root} && php artisan migrate --force 2>&1");
-echo "MIGRATE OUTPUT:\\n" . $out;
+
+define('LARAVEL_START', microtime(true));
+require __DIR__.'/../vendor/autoload.php';
+$app = require_once __DIR__.'/../bootstrap/app.php';
+
+$kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+$status = $kernel->call('migrate', ['--force' => true]);
+
+echo "MIGRATE STATUS: " . $status . "\\n";
+echo "MIGRATE OUTPUT:\\n" . $kernel->output();
 @unlink(__FILE__);
 """
 
