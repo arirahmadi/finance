@@ -590,7 +590,7 @@
                                                     {{ $tx->transaction_number }}
                                                     @if ($tx->approval_status === 'pending')
                                                         <div style="margin-top: 4px;">
-                                                            <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.65rem; padding: 1px 4px; display: inline-block;">Pending Approval ({{ $tx->approvals->count() }}/2)</span>
+                                                            <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.65rem; padding: 1px 4px; display: inline-block;">Pending Approval ({{ $tx->approvals->count() }}/3)</span>
                                                         </div>
                                                         @if ($tx->approvals->isNotEmpty())
                                                             <div style="font-size: 0.65rem; color: var(--text-muted); margin-top: 2px;" title="{{ $tx->approvals->map(fn($a) => $a->user->name)->implode(', ') }}">
@@ -907,7 +907,7 @@
                                                     {{ $adv->transaction_number }}
                                                     @if ($adv->approval_status === 'pending')
                                                         <div style="margin-top: 4px;">
-                                                            <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.65rem; padding: 1px 4px; display: inline-block;">Pending Approval ({{ $adv->approvals->count() }}/2)</span>
+                                                            <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.65rem; padding: 1px 4px; display: inline-block;">Pending Approval ({{ $adv->approvals->count() }}/3)</span>
                                                         </div>
                                                         @if ($adv->approvals->isNotEmpty())
                                                             <div style="font-size: 0.65rem; color: var(--text-muted); margin-top: 2px;" title="{{ $adv->approvals->map(fn($a) => $a->user->name)->implode(', ') }}">
@@ -1131,7 +1131,7 @@
                                                     {{ $loan->transaction_number }}
                                                     @if ($loan->approval_status === 'pending')
                                                         <div style="margin-top: 4px;">
-                                                            <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.65rem; padding: 1px 4px; display: inline-block;">Pending Approval ({{ $loan->approvals->count() }}/2)</span>
+                                                            <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.65rem; padding: 1px 4px; display: inline-block;">Pending Approval ({{ $loan->approvals->count() }}/3)</span>
                                                         </div>
                                                         @if ($loan->approvals->isNotEmpty())
                                                             <div style="font-size: 0.65rem; color: var(--text-muted); margin-top: 2px;" title="{{ $loan->approvals->map(fn($a) => $a->user->name)->implode(', ') }}">
@@ -1262,7 +1262,7 @@
                                                                              {{ $rep->transaction_number }}
                                                                              @if ($rep->approval_status === 'pending')
                                                                                  <div style="margin-top: 4px;">
-                                                                                     <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.65rem; padding: 1px 4px; display: inline-block;">Pending ({{ $rep->approvals->count() }}/2)</span>
+                                                                                     <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.65rem; padding: 1px 4px; display: inline-block;">Pending ({{ $rep->approvals->count() }}/3)</span>
                                                                                  </div>
                                                                                  @if ($rep->approvals->isNotEmpty())
                                                                                      <div style="font-size: 0.65rem; color: var(--text-muted); margin-top: 2px;" title="{{ $rep->approvals->map(fn($a) => $a->user->name)->implode(', ') }}">
@@ -1405,12 +1405,12 @@
                                     </svg>
                                     Ekspor Buku Besar (XLS)
                                 </a>
-                                <button type="button" onclick="window.print()" class="btn btn-secondary btn-sm" style="height: 38px; display: inline-flex; align-items: center; gap: 6px;">
+                                <a href="{{ route('web.export.ledger.pdf', request()->query()) }}" target="_blank" class="btn btn-secondary btn-sm" style="height: 38px; display: inline-flex; align-items: center; gap: 6px;">
                                     <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                                     </svg>
                                     Cetak Buku Besar (PDF)
-                                </button>
+                                </a>
                             @endif
                         </form>
                     </div>

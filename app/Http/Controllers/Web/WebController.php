@@ -1084,6 +1084,125 @@ class WebController extends Controller
     }
 
     /**
+     * Export general ledger of a specific account to PDF layout.
+     */
+    public function exportLedgerPdf(Request $request)
+    {
+        $ledgerAccountId = $request->input('ledger_account_id');
+        $ledgerStartDate = $request->input('ledger_start_date', Carbon::now()->startOfMonth()->format('Y-m-d'));
+        $ledgerEndDate = $request->input('ledger_end_date', Carbon::now()->endOfMonth()->format('Y-m-d'));
+
+        if (!$ledgerAccountId) {
+            return back()->withErrors(['ledger' => 'Silakan pilih akun Buku Besar terlebih dahulu.']);
+        }
+
+        $ledgerAccount = Account::findOrFail($ledgerAccountId);
+        $ledgerStartingBalance = 0;
+        $ledgerEntries = collect([]);
+        $ledgerEndingBalance = 0;
+
+        $startCarbon = Carbon::parse($ledgerStartDate)->startOfDay();
+
+        // Prior balance calculation (Saldo Awal)
+        $priorEntries = JournalEntry::with('transaction')
+            ->where('account_id', $ledgerAccountId)
+            ->whereHas('transaction', function($q) use ($startCarbon) {
+                $q->where('transaction_date', '<', $startCarbon)
+                  ->where('approval_status', 'approved');
+            })->get()->filter(function($entry) {
+                $tx = $entry->transaction;
+                if (!$tx) return false;
+                return $tx->is_reimbursement
+                    ? ($tx->reimbursement_status === 'transferred')
+                    : (bool) $tx->is_transferred;
+            });
+
+        foreach ($priorEntries as $entry) {
+            $amount = floatval($entry->amount);
+            if ($ledgerAccount->type === 'asset' || $ledgerAccount->type === 'expense') {
+                if ($entry->type === 'debit') {
+                    $ledgerStartingBalance += $amount;
+                } else {
+                    $ledgerStartingBalance -= $amount;
+                }
+            } else {
+                if ($entry->type === 'credit') {
+                    $ledgerStartingBalance += $amount;
+                } else {
+                    $ledgerStartingBalance -= $amount;
+                }
+            }
+        }
+
+        // Mutation entries calculation
+        $endCarbon = Carbon::parse($ledgerEndDate)->endOfDay();
+        $rawEntries = JournalEntry::with(['transaction.creator', 'transaction'])
+            ->where('account_id', $ledgerAccountId)
+            ->whereHas('transaction', function($q) use ($startCarbon, $endCarbon) {
+                $q->whereBetween('transaction_date', [$startCarbon, $endCarbon])
+                  ->where('approval_status', 'approved');
+            })->get()->filter(function($entry) {
+                $tx = $entry->transaction;
+                if (!$tx) return false;
+                return $tx->is_reimbursement
+                    ? ($tx->reimbursement_status === 'transferred')
+                    : (bool) $tx->is_transferred;
+            });
+
+        $sortedEntries = $rawEntries->sortBy(function($entry) {
+            return $entry->transaction->transaction_date->format('Y-m-d') . '_' . str_pad($entry->transaction_id, 10, '0', STR_PAD_LEFT);
+        });
+
+        $runningBalance = $ledgerStartingBalance;
+        $ledgerEntries = $sortedEntries->map(function ($entry) use (&$runningBalance, $ledgerAccount) {
+            $amount = floatval($entry->amount);
+            $debit = 0;
+            $credit = 0;
+
+            if ($entry->type === 'debit') {
+                $debit = $amount;
+                if ($ledgerAccount->type === 'asset' || $ledgerAccount->type === 'expense') {
+                    $runningBalance += $amount;
+                } else {
+                    $runningBalance -= $amount;
+                }
+            } else {
+                $credit = $amount;
+                if ($ledgerAccount->type === 'asset' || $ledgerAccount->type === 'expense') {
+                    $runningBalance -= $amount;
+                } else {
+                    $runningBalance += $amount;
+                }
+            }
+
+            return (object) [
+                'transaction_number' => $entry->transaction->transaction_number,
+                'transaction_date' => $entry->transaction->transaction_date,
+                'description' => $entry->transaction->description,
+                'debit' => $debit,
+                'credit' => $credit,
+                'running_balance' => $runningBalance
+            ];
+        });
+
+        $ledgerEndingBalance = $runningBalance;
+
+        $totalDebit = $ledgerEntries->sum('debit');
+        $totalCredit = $ledgerEntries->sum('credit');
+
+        return view('ledger_pdf', compact(
+            'ledgerAccount',
+            'ledgerStartDate',
+            'ledgerEndDate',
+            'ledgerStartingBalance',
+            'ledgerEndingBalance',
+            'ledgerEntries',
+            'totalDebit',
+            'totalCredit'
+        ));
+    }
+
+    /**
      * Update the specified transaction in storage.
      */
     public function editTransaction(Request $request, int $id): RedirectResponse
@@ -2270,7 +2389,7 @@ class WebController extends Controller
             ]);
 
             $approvalsCount = \App\Models\TransactionApproval::where('transaction_id', $tx->id)->count();
-            if ($approvalsCount >= 2) {
+            if ($approvalsCount >= 3) {
                 $tx->update(['approval_status' => 'approved']);
 
                 // If this is a repayment, update the parent loan

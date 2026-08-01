@@ -85,9 +85,13 @@ class TransactionApprovalTest extends TestCase
         $approveResponseDuplicate = $this->actingAs($this->staff1)->postJson("/api/transactions/{$txId}/approve");
         $approveResponseDuplicate->assertStatus(400);
 
-        // 5. Approver 2 approves (should trigger 'approved' status)
+        // 5. Approver 2 approves
         $approveResponse2 = $this->actingAs($this->staff2)->postJson("/api/transactions/{$txId}/approve");
         $approveResponse2->assertStatus(200)->assertJsonPath('message', 'Persetujuan berhasil disimpan.');
+
+        // 6. Approver 3 approves (should trigger 'approved' status)
+        $approveResponse3 = $this->actingAs($this->staff3)->postJson("/api/transactions/{$txId}/approve");
+        $approveResponse3->assertStatus(200)->assertJsonPath('message', 'Persetujuan berhasil disimpan.');
 
         $this->assertDatabaseHas('transactions', [
             'id' => $txId,
@@ -155,9 +159,10 @@ class TransactionApprovalTest extends TestCase
         $loan->refresh();
         $this->assertEquals(0.0, $loan->loan_repaid_amount);
 
-        // Approve the repayment (2 steps)
+        // Approve the repayment (3 steps)
         $this->actingAs($this->staff1)->postJson("/api/transactions/{$repaymentTxId}/approve");
         $this->actingAs($this->staff2)->postJson("/api/transactions/{$repaymentTxId}/approve");
+        $this->actingAs($this->staff3)->postJson("/api/transactions/{$repaymentTxId}/approve");
 
         // Parent loan should now be updated to show 400000 repaid
         $loan->refresh();

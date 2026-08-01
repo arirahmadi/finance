@@ -49,6 +49,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/export/csv', [WebController::class, 'exportCsv'])->name('web.export.csv');
     Route::get('/export/transactions/xls', [WebController::class, 'exportTransactionsXls'])->name('web.export.transactions.xls');
     Route::get('/export/ledger/xls', [WebController::class, 'exportLedgerXls'])->name('web.export.ledger.xls');
+    Route::get('/export/ledger/pdf', [WebController::class, 'exportLedgerPdf'])->name('web.export.ledger.pdf');
 
     // Users & Roles Management
     Route::get('/settings/users', [WebController::class, 'indexUsers'])->name('web.users.index');

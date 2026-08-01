@@ -1017,9 +1017,9 @@ class TransactionController extends Controller
         $tx = Transaction::findOrFail($id);
         
         $approvalsCount = \App\Models\TransactionApproval::where('transaction_id', $tx->id)->count();
-        if ($approvalsCount < 2) {
+        if ($approvalsCount < 3) {
             return response()->json([
-                'message' => 'Akses Ditolak: Transaksi belum bisa ditransfer karena memerlukan minimal 2 approval.'
+                'message' => 'Akses Ditolak: Transaksi belum bisa ditransfer karena memerlukan minimal 3 approval.'
             ], 400);
         }
 
@@ -1074,7 +1074,7 @@ class TransactionController extends Controller
             ]);
 
             $approvalsCount = \App\Models\TransactionApproval::where('transaction_id', $tx->id)->count();
-            if ($approvalsCount >= 2) {
+            if ($approvalsCount >= 3) {
                 $tx->update(['approval_status' => 'approved']);
 
                 // If this is a repayment, update the parent loan
