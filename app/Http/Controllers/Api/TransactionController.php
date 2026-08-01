@@ -50,11 +50,12 @@ class TransactionController extends Controller
         //   - total_out_transferred : approved + already transferred (actual cash out)
         //   - total_out_estimated   : approved + not yet transferred (potential cash out)
         $totalIn = 0;
-        $totalOut = 0;
-        $totalOutTransferred = 0;
-        $totalOutEstimated = 0;
+        $totalOutTransferredRegular = 0;
+        $totalOutTransferredSettlement = 0;
+        $totalOutTransferredCa = 0;
+        $totalOutEstimatedRegular = 0;
 
-        $formattedTransactions = $transactions->map(function ($tx) use (&$totalIn, &$totalOut, &$totalOutTransferred, &$totalOutEstimated) {
+        $formattedTransactions = $transactions->map(function ($tx) use (&$totalIn, &$totalOutTransferredRegular, &$totalOutTransferredSettlement, &$totalOutTransferredCa, &$totalOutEstimatedRegular) {
             // Find cash/bank account movement to determine if it is In or Out
             // Cash Inflow: Debit to Asset/Liability account (11 or 21)
             // Cash Outflow: Credit to Asset/Liability account (11 or 21)
@@ -92,11 +93,18 @@ class TransactionController extends Controller
                 ? ($tx->reimbursement_status === 'transferred')
                 : (bool) $tx->is_transferred;
 
-            // Hitung summary HANYA dari transaksi reguler (exclude advance, loan, repayment)
-            // agar cocok dengan web dashboard yang filter is_advance=false & is_loan=false
-            $isRegularTx = !$tx->is_advance && !$tx->is_loan && is_null($tx->loan_parent_id);
-
-            if ($isRegularTx) {
+            if ($tx->is_advance) {
+                // Settlement / Advance
+                if ($tx->approval_status === 'approved' && $isActuallyTransferred) {
+                    $totalOutTransferredSettlement += $amount;
+                }
+            } elseif ($tx->is_loan) {
+                // Cash Advance / Pinjaman
+                if ($tx->approval_status === 'approved' && $isActuallyTransferred) {
+                    $totalOutTransferredCa += ($tx->transferred_amount > 0 ? floatval($tx->transferred_amount) : $amount);
+                }
+            } elseif (is_null($tx->loan_parent_id)) {
+                // Regular Transaction (non-repayment)
                 if ($type === 'in') {
                     if ($tx->approval_status === 'approved') {
                         $totalIn += $amount;
@@ -104,12 +112,10 @@ class TransactionController extends Controller
                 } elseif ($type === 'out') {
                     if ($isActuallyTransferred) {
                         if ($tx->approval_status === 'approved') {
-                            $totalOutTransferred += $amount;
-                            $totalOut += $amount;
+                            $totalOutTransferredRegular += $amount;
                         }
                     } else {
-                        // Semua yang belum ditransfer adalah potensi/prakiraan keluar (baik approved maupun pending)
-                        $totalOutEstimated += $amount;
+                        $totalOutEstimatedRegular += $amount;
                     }
                 }
             }
@@ -147,13 +153,15 @@ class TransactionController extends Controller
             ];
         });
 
+        $totalOutCombined = $totalOutTransferredRegular + $totalOutTransferredSettlement + $totalOutTransferredCa;
+
         return response()->json([
             'summary' => [
                 'total_in'               => $totalIn,
-                'total_out'              => $totalOut,              // all approved out (transferred + estimated)
-                'total_out_transferred'  => $totalOutTransferred,  // approved + already transferred
-                'total_out_estimated'    => $totalOutEstimated,    // approved + not yet transferred (potensi keluar)
-                'net_flow'               => $totalIn - $totalOut,
+                'total_out'              => $totalOutCombined,
+                'total_out_transferred'  => $totalOutTransferredRegular,
+                'total_out_estimated'    => $totalOutEstimatedRegular,
+                'net_flow'               => $totalIn - $totalOutCombined,
                 'period' => [
                     'start' => $startDate ? $startDate->format('Y-m-d') : 'All Time',
                     'end'   => $endDate   ? $endDate->format('Y-m-d')   : 'All Time',
