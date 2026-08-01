@@ -47,10 +47,14 @@ class TransactionController extends Controller
         // Calculate summaries (total uang masuk and total uang keluar)
         // Uang Masuk (Cash In): Debit to Asset accounts (e.g. Kas/Bank code starting with 11) with offset Credit to Revenue (starting with 4)
         // Uang Keluar (Cash Out): Credit to Asset accounts (starting with 11) with offset Debit to Expense (starting with 5)
+        //   - total_out_transferred : approved + already transferred (actual cash out)
+        //   - total_out_estimated   : approved + not yet transferred (potential cash out)
         $totalIn = 0;
         $totalOut = 0;
+        $totalOutTransferred = 0;
+        $totalOutEstimated = 0;
 
-        $formattedTransactions = $transactions->map(function ($tx) use (&$totalIn, &$totalOut) {
+        $formattedTransactions = $transactions->map(function ($tx) use (&$totalIn, &$totalOut, &$totalOutTransferred, &$totalOutEstimated) {
             // Find cash/bank account movement to determine if it is In or Out
             // Cash Inflow: Debit to Asset/Liability account (11 or 21)
             // Cash Outflow: Credit to Asset/Liability account (11 or 21)
@@ -81,11 +85,23 @@ class TransactionController extends Controller
                 $amount = floatval($tx->journalEntries->first()->amount);
             }
 
+            // Determine whether this transaction is actually transferred
+            // For reimbursements: transferred = reimbursement_status === 'transferred'
+            // For regular: transferred = is_transferred flag
+            $isActuallyTransferred = $tx->is_reimbursement
+                ? ($tx->reimbursement_status === 'transferred')
+                : (bool) $tx->is_transferred;
+
             if ($tx->approval_status === 'approved') {
                 if ($type === 'in') {
                     $totalIn += $amount;
                 } elseif ($type === 'out') {
                     $totalOut += $amount;
+                    if ($isActuallyTransferred) {
+                        $totalOutTransferred += $amount;
+                    } else {
+                        $totalOutEstimated += $amount;
+                    }
                 }
             }
 
@@ -124,12 +140,14 @@ class TransactionController extends Controller
 
         return response()->json([
             'summary' => [
-                'total_in' => $totalIn,
-                'total_out' => $totalOut,
-                'net_flow' => $totalIn - $totalOut,
+                'total_in'               => $totalIn,
+                'total_out'              => $totalOut,              // all approved out (transferred + estimated)
+                'total_out_transferred'  => $totalOutTransferred,  // approved + already transferred
+                'total_out_estimated'    => $totalOutEstimated,    // approved + not yet transferred (potensi keluar)
+                'net_flow'               => $totalIn - $totalOut,
                 'period' => [
                     'start' => $startDate ? $startDate->format('Y-m-d') : 'All Time',
-                    'end' => $endDate ? $endDate->format('Y-m-d') : 'All Time',
+                    'end'   => $endDate   ? $endDate->format('Y-m-d')   : 'All Time',
                 ]
             ],
             'data' => $formattedTransactions,
