@@ -92,7 +92,11 @@ class TransactionController extends Controller
                 ? ($tx->reimbursement_status === 'transferred')
                 : (bool) $tx->is_transferred;
 
-            if ($tx->approval_status === 'approved') {
+            // Hitung summary HANYA dari transaksi reguler (exclude advance, loan, repayment)
+            // agar cocok dengan web dashboard yang filter is_advance=false & is_loan=false
+            $isRegularTx = !$tx->is_advance && !$tx->is_loan && is_null($tx->loan_parent_id);
+
+            if ($isRegularTx && $tx->approval_status === 'approved') {
                 if ($type === 'in') {
                     $totalIn += $amount;
                 } elseif ($type === 'out') {
