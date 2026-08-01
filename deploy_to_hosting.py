@@ -212,7 +212,7 @@ if not unzipped:
 
 print("Running database migrations on live server...")
 try:
-    migrate_url = "https://finance.berkahsinergigemilang.com/migrate_runner.php?token=default_secret_token_123"
+    migrate_url = "https://finance.berkahsinergigemilang.com/public/migrate_runner.php?token=default_secret_token_123"
     print(f"Calling: {migrate_url}")
     req = urllib.request.Request(migrate_url, headers={'User-Agent': 'Mozilla/5.0'})
     with urllib.request.urlopen(req, context=ctx, timeout=60) as resp:
