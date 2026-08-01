@@ -123,7 +123,7 @@ zip_path = os.path.join(PROJECT_DIR, "project.zip")
 print("Zipping local project files...")
 
 excluded_dirs = {".git", ".github", "node_modules", "tests", "vendor", "storage"}
-excluded_files = {".DS_Store", "project.zip", "phpunit.xml", "vite.config.js", "scratch_deploy.py", "deploy_to_hosting.py"}
+excluded_files = {".DS_Store", "project.zip", "phpunit.xml", "vite.config.js", "scratch_deploy.py", "deploy_to_hosting.py", ".env"}
 
 with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
     for root, dirs, files in os.walk(PROJECT_DIR):
