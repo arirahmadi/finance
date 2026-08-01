@@ -129,4 +129,108 @@ class AuthController extends Controller
             'user' => $user,
         ]);
     }
+
+    /**
+     * Create a new user (owner-only).
+     */
+    public function storeUser(Request $request): JsonResponse
+    {
+        if (strtolower($request->user()->role) !== 'owner') {
+            return response()->json(['message' => 'Unauthorized. Owner only.'], 403);
+        }
+
+        $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
+            'password' => ['required', 'string', 'min:8'],
+            'role' => ['required', 'string', 'in:owner,staff'],
+            'permissions' => ['nullable', 'array'],
+        ]);
+
+        $user = User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
+            'role' => $request->role,
+            'permissions' => $request->permissions ?? [
+                'view_transactions',
+                'create_transactions',
+                'edit_transactions',
+                'delete_transactions',
+                'view_coa',
+                'approve_transactions'
+            ],
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'User baru berhasil ditambahkan.',
+            'user' => $user,
+        ], 201);
+    }
+
+    /**
+     * Full update user (owner-only).
+     */
+    public function updateUser(Request $request, $id): JsonResponse
+    {
+        if (strtolower($request->user()->role) !== 'owner') {
+            return response()->json(['message' => 'Unauthorized. Owner only.'], 403);
+        }
+
+        $user = User::findOrFail($id);
+
+        $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email,' . $id],
+            'password' => ['nullable', 'string', 'min:8'],
+            'role' => ['required', 'string', 'in:owner,staff'],
+            'permissions' => ['nullable', 'array'],
+        ]);
+
+        $user->name = $request->name;
+        $user->email = $request->email;
+        $user->role = $request->role;
+        if ($request->filled('password')) {
+            $user->password = Hash::make($request->password);
+        }
+        if ($request->has('permissions')) {
+            $user->permissions = $request->permissions;
+        }
+        $user->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Data user berhasil diperbarui.',
+            'user' => $user,
+        ]);
+    }
+
+    /**
+     * Reset Password (Forgot Password)
+     */
+    public function forgotPassword(Request $request): JsonResponse
+    {
+        $request->validate([
+            'email' => ['required', 'string', 'email'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Alamat email tidak terdaftar dalam sistem.',
+            ], 404);
+        }
+
+        $user->password = Hash::make($request->password);
+        $user->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Kata sandi berhasil disetel ulang.',
+        ]);
+    }
 }

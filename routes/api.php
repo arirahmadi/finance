@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Route;
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 
 // Authenticated routes
 Route::middleware('auth:sanctum')->group(function () {
@@ -38,6 +39,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // User & Roles (Owner-only)
     Route::get('/users', [AuthController::class, 'users']);
+    Route::post('/users', [AuthController::class, 'storeUser']);
+    Route::put('/users/{id}', [AuthController::class, 'updateUser']);
     Route::put('/users/{id}/role', [AuthController::class, 'updateUserRole']);
 
     // Employees Management (HRIS)
