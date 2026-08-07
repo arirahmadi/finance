@@ -529,6 +529,84 @@
 
 
 
+                    <!-- Filter Toolbar & Live Dynamic Total Nominal for Transactions -->
+                    <div class="glass-panel" style="margin-bottom: 20px; padding: 16px; border-radius: 12px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08);">
+                        <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-primary); margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                            <svg style="width: 16px; height: 16px; color: var(--primary);" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                            </svg>
+                            Filter & Sorting Transaksi
+                        </div>
+                        <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; justify-content: space-between; margin-bottom: 14px;">
+                            <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; flex: 1;">
+                                <!-- Filter Jenis -->
+                                <div class="form-group" style="margin-bottom: 0; min-width: 140px;">
+                                    <label for="txFilterType" class="form-label" style="font-size: 0.75rem; margin-bottom: 4px; font-weight: 600; color: var(--text-secondary);">Jenis Transaksi</label>
+                                    <select id="txFilterType" onchange="filterTransactionsTable()" class="form-input" style="padding: 8px 12px; font-size: 0.85rem; height: 38px;">
+                                        <option value="">Semua Jenis</option>
+                                        <option value="in" {{ request('type') === 'in' ? 'selected' : '' }}>Masuk (Uang Masuk)</option>
+                                        <option value="out" {{ request('type') === 'out' ? 'selected' : '' }}>Keluar (Uang Keluar)</option>
+                                    </select>
+                                </div>
+
+                                <!-- Filter Kategori -->
+                                <div class="form-group" style="margin-bottom: 0; min-width: 170px;">
+                                    <label for="txFilterCategory" class="form-label" style="font-size: 0.75rem; margin-bottom: 4px; font-weight: 600; color: var(--text-secondary);">Kategori</label>
+                                    <select id="txFilterCategory" onchange="filterTransactionsTable()" class="form-input" style="padding: 8px 12px; font-size: 0.85rem; height: 38px;">
+                                        <option value="">Semua Kategori</option>
+                                    </select>
+                                </div>
+
+                                <!-- Filter Akun Kas/Bank -->
+                                <div class="form-group" style="margin-bottom: 0; min-width: 170px;">
+                                    <label for="txFilterAccount" class="form-label" style="font-size: 0.75rem; margin-bottom: 4px; font-weight: 600; color: var(--text-secondary);">Akun Kas/Bank</label>
+                                    <select id="txFilterAccount" onchange="filterTransactionsTable()" class="form-input" style="padding: 8px 12px; font-size: 0.85rem; height: 38px;">
+                                        <option value="">Semua Akun Kas/Bank</option>
+                                    </select>
+                                </div>
+
+                                <!-- Filter Keterangan / Cari -->
+                                <div class="form-group" style="margin-bottom: 0; min-width: 200px; flex: 1;">
+                                    <label for="txFilterSearch" class="form-label" style="font-size: 0.75rem; margin-bottom: 4px; font-weight: 600; color: var(--text-secondary);">Keterangan / No. Bukti</label>
+                                    <input type="text" id="txFilterSearch" onkeyup="filterTransactionsTable()" value="{{ request('search') }}" placeholder="Cari keterangan, No. Bukti..." class="form-input" style="padding: 8px 12px; font-size: 0.85rem; height: 38px;">
+                                </div>
+
+                                <!-- Reset Button -->
+                                <button type="button" onclick="resetTransactionsFilter()" class="btn btn-secondary btn-sm" style="height: 38px; padding: 0 14px; font-size: 0.85rem;" title="Reset Filter">
+                                    Reset Filter
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Live Total Nominal Summary Bar -->
+                        <div style="display: flex; flex-wrap: wrap; gap: 12px; padding: 12px 16px; background: rgba(0, 0, 0, 0.18); border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.06); align-items: center; justify-content: space-between;">
+                            <div style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; font-weight: 600; color: var(--text-primary);">
+                                <svg style="width: 18px; height: 18px; color: var(--primary);" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                </svg>
+                                Total Nominal Terfilter:
+                            </div>
+
+                            <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: center;">
+                                <div style="font-size: 0.85rem;">
+                                    <span style="color: var(--text-secondary);">Uang Masuk: </span>
+                                    <span id="txSummaryFilteredIn" class="amount-in" style="font-weight: 700;">Rp 0</span>
+                                </div>
+                                <div style="font-size: 0.85rem;">
+                                    <span style="color: var(--text-secondary);">Uang Keluar: </span>
+                                    <span id="txSummaryFilteredOut" class="amount-out" style="font-weight: 700;">Rp 0</span>
+                                </div>
+                                <div style="font-size: 0.85rem; padding: 4px 10px; background: rgba(255, 255, 255, 0.06); border-radius: 6px;">
+                                    <span style="color: var(--text-secondary);">Net Total (Selisih): </span>
+                                    <span id="txSummaryFilteredNet" style="font-weight: 700; color: #60a5fa;">Rp 0</span>
+                                </div>
+                                <div style="font-size: 0.8rem; color: var(--text-secondary);">
+                                    (<span id="txSummaryFilteredCount">0</span> dari {{ $transactions->count() }} transaksi)
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Transactions Table Card -->
                     <section class="glass-panel table-card">
                         <div class="table-header" style="display: flex; justify-content: space-between; align-items: center;">
@@ -580,7 +658,14 @@
                                     </thead>
                                     <tbody>
                                         @foreach ($transactions as $tx)
-                                            <tr>
+                                            <tr class="tx-row" 
+                                                data-type="{{ $tx->type }}" 
+                                                data-category="{{ $tx->category }}" 
+                                                data-payment-source="{{ $tx->payment_source }}" 
+                                                data-amount="{{ $tx->amount }}"
+                                                data-number="{{ strtolower($tx->transaction_number) }}"
+                                                data-description="{{ strtolower($tx->description ?? '') }}"
+                                            >
                                                 @if (Auth::user()->hasPermission('delete_transactions'))
                                                     <td style="text-align: center;">
                                                         <input type="checkbox" class="tx-checkbox" value="{{ $tx->id }}" style="cursor: pointer;" onclick="updateBulkDeleteState()">
@@ -3961,6 +4046,121 @@
             rows.forEach(row => tbody.appendChild(row));
         }
 
+        function populateTransactionFilterDropdowns() {
+            const table = document.querySelector('#sub-section-transactions table.table');
+            if (!table) return;
+            const rows = Array.from(table.querySelectorAll('tbody tr.tx-row'));
+            
+            const categories = new Set();
+            const accounts = new Set();
+
+            rows.forEach(r => {
+                const cat = r.getAttribute('data-category');
+                const acc = r.getAttribute('data-payment-source');
+                if (cat && cat.trim() && cat.trim() !== '-') categories.add(cat.trim());
+                if (acc && acc.trim() && acc.trim() !== '-') accounts.add(acc.trim());
+            });
+
+            const catSelect = document.getElementById('txFilterCategory');
+            if (catSelect) {
+                const currentVal = catSelect.value;
+                catSelect.innerHTML = '<option value="">Semua Kategori</option>';
+                Array.from(categories).sort().forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c;
+                    opt.textContent = c;
+                    catSelect.appendChild(opt);
+                });
+                if (currentVal && categories.has(currentVal)) catSelect.value = currentVal;
+            }
+
+            const accSelect = document.getElementById('txFilterAccount');
+            if (accSelect) {
+                const currentVal = accSelect.value;
+                accSelect.innerHTML = '<option value="">Semua Akun Kas/Bank</option>';
+                Array.from(accounts).sort().forEach(a => {
+                    const opt = document.createElement('option');
+                    opt.value = a;
+                    opt.textContent = a;
+                    accSelect.appendChild(opt);
+                });
+                if (currentVal && accounts.has(currentVal)) accSelect.value = currentVal;
+            }
+        }
+
+        function filterTransactionsTable() {
+            const table = document.querySelector('#sub-section-transactions table.table');
+            if (!table) return;
+            const rows = Array.from(table.querySelectorAll('tbody tr.tx-row'));
+
+            const typeVal = (document.getElementById('txFilterType')?.value || '').toLowerCase();
+            const catVal = (document.getElementById('txFilterCategory')?.value || '').toLowerCase();
+            const accVal = (document.getElementById('txFilterAccount')?.value || '').toLowerCase();
+            const searchVal = (document.getElementById('txFilterSearch')?.value || '').trim().toLowerCase();
+
+            let totalIn = 0;
+            let totalOut = 0;
+            let matchCount = 0;
+
+            rows.forEach(row => {
+                const rowType = (row.getAttribute('data-type') || '').toLowerCase();
+                const rowCat = (row.getAttribute('data-category') || '').toLowerCase();
+                const rowAcc = (row.getAttribute('data-payment-source') || '').toLowerCase();
+                const rowNum = (row.getAttribute('data-number') || '').toLowerCase();
+                const rowDesc = (row.getAttribute('data-description') || '').toLowerCase();
+                const rowAmount = parseFloat(row.getAttribute('data-amount')) || 0;
+
+                const matchType = !typeVal || rowType === typeVal;
+                const matchCat = !catVal || rowCat === catVal;
+                const matchAcc = !accVal || rowAcc === accVal;
+                const matchSearch = !searchVal || rowNum.includes(searchVal) || rowDesc.includes(searchVal) || rowCat.includes(searchVal) || rowAcc.includes(searchVal);
+
+                if (matchType && matchCat && matchAcc && matchSearch) {
+                    row.style.display = '';
+                    row.removeAttribute('data-search-hidden');
+                    matchCount++;
+                    if (rowType === 'in') {
+                        totalIn += rowAmount;
+                    } else if (rowType === 'out') {
+                        totalOut += rowAmount;
+                    }
+                } else {
+                    row.style.display = 'none';
+                    row.setAttribute('data-search-hidden', 'true');
+                }
+            });
+
+            const formatRp = (num) => 'Rp ' + new Intl.NumberFormat('id-ID').format(Math.round(num));
+            
+            const totalInEl = document.getElementById('txSummaryFilteredIn');
+            const totalOutEl = document.getElementById('txSummaryFilteredOut');
+            const totalNetEl = document.getElementById('txSummaryFilteredNet');
+            const countEl = document.getElementById('txSummaryFilteredCount');
+
+            if (totalInEl) totalInEl.textContent = formatRp(totalIn);
+            if (totalOutEl) totalOutEl.textContent = formatRp(totalOut);
+            
+            const net = totalIn - totalOut;
+            if (totalNetEl) {
+                totalNetEl.textContent = (net < 0 ? '- ' : '') + formatRp(Math.abs(net));
+                totalNetEl.style.color = net >= 0 ? '#10b981' : '#ef4444';
+            }
+            if (countEl) countEl.textContent = matchCount;
+
+            if (paginationState['transactions']) {
+                paginationState['transactions'].page = 1;
+            }
+            initPagination('transactions');
+        }
+
+        function resetTransactionsFilter() {
+            if (document.getElementById('txFilterType')) document.getElementById('txFilterType').value = '';
+            if (document.getElementById('txFilterCategory')) document.getElementById('txFilterCategory').value = '';
+            if (document.getElementById('txFilterAccount')) document.getElementById('txFilterAccount').value = '';
+            if (document.getElementById('txFilterSearch')) document.getElementById('txFilterSearch').value = '';
+            filterTransactionsTable();
+        }
+
         let settlementsSortCol = -1;
         let settlementsSortAsc = true;
 
@@ -4309,6 +4509,10 @@
 
         // ===== AUTO-INIT ON PAGE LOAD =====
         document.addEventListener('DOMContentLoaded', () => {
+            // Populate transaction filter dropdown options & compute initial filtered totals
+            populateTransactionFilterDropdowns();
+            filterTransactionsTable();
+
             // Initialize all tables
             ['employee', 'transactions', 'settlements', 'cash-advances'].forEach(key => {
                 initPagination(key);

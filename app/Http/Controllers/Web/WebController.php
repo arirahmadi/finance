@@ -69,6 +69,7 @@ class WebController extends Controller
     {
         $startDate = $request->input('start_date');
         $endDate = $request->input('end_date');
+        $searchQuery = $request->input('search');
 
         $query = Transaction::with(['journalEntries.account', 'attachments', 'creator', 'approvals.user'])
             ->where('is_advance', false)
@@ -82,6 +83,12 @@ class WebController extends Controller
         }
         if ($endDate) {
             $query->where('transaction_date', '<=', Carbon::parse($endDate)->endOfDay());
+        }
+        if ($searchQuery) {
+            $query->where(function($q) use ($searchQuery) {
+                $q->where('transaction_number', 'like', "%{$searchQuery}%")
+                  ->orWhere('description', 'like', "%{$searchQuery}%");
+            });
         }
 
         $transactions = $query->get();
