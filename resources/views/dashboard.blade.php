@@ -545,7 +545,9 @@
                                     <select id="txFilterType" onchange="filterTransactionsTable()" class="form-input" style="padding: 8px 12px; font-size: 0.85rem; height: 38px;">
                                         <option value="">Semua Jenis</option>
                                         <option value="in" {{ request('type') === 'in' ? 'selected' : '' }}>Masuk (Uang Masuk)</option>
-                                        <option value="out" {{ request('type') === 'out' ? 'selected' : '' }}>Keluar (Uang Keluar)</option>
+                                        <option value="out" {{ request('type') === 'out' ? 'selected' : '' }}>Keluar (Semua Uang Keluar)</option>
+                                        <option value="out_transferred" {{ request('type') === 'out_transferred' ? 'selected' : '' }}>Keluar (Sudah Ditransfer)</option>
+                                        <option value="out_pending" {{ request('type') === 'out_pending' ? 'selected' : '' }}>Keluar (Pending Transfer)</option>
                                     </select>
                                 </div>
 
@@ -593,12 +595,17 @@
                                     <span id="txSummaryFilteredIn" class="amount-in" style="font-weight: 700;">Rp 0</span>
                                 </div>
                                 <div style="font-size: 0.85rem;">
-                                    <span style="color: var(--text-secondary);">Uang Keluar: </span>
-                                    <span id="txSummaryFilteredOut" class="amount-out" style="font-weight: 700;">Rp 0</span>
+                                    <span style="color: var(--text-secondary);">Uang Keluar (Ditransfer): </span>
+                                    <span id="txSummaryFilteredOutTransferred" class="amount-out" style="font-weight: 700;">Rp 0</span>
+                                    <span id="txSummaryFilteredOut" style="display: none;">Rp 0</span>
+                                </div>
+                                <div style="font-size: 0.85rem;">
+                                    <span style="color: var(--text-secondary);">Pending Transfer: </span>
+                                    <span id="txSummaryFilteredOutPending" style="font-weight: 700; color: #fbbf24;">Rp 0</span>
                                 </div>
                                 <div style="font-size: 0.85rem; padding: 4px 10px; background: rgba(255, 255, 255, 0.06); border-radius: 6px;">
                                     <span style="color: var(--text-secondary);">Net Total (Selisih): </span>
-                                    <span id="txSummaryFilteredNet" style="font-weight: 700; color: #60a5fa;">Rp 0</span>
+                                    <span id="txSummaryFilteredNet" style="font-weight: 700; color: #60a5fa;" title="Uang Masuk dikurangi Uang Keluar (Ditransfer)">Rp 0</span>
                                 </div>
                                 <div style="font-size: 0.8rem; color: var(--text-secondary);">
                                     (<span id="txSummaryFilteredCount">0</span> dari {{ $transactions->count() }} transaksi)
@@ -660,6 +667,7 @@
                                         @foreach ($transactions as $tx)
                                             <tr class="tx-row" 
                                                 data-type="{{ $tx->type }}" 
+                                                data-is-transferred="{{ $tx->is_transferred ? '1' : '0' }}"
                                                 data-category="{{ $tx->category }}" 
                                                 data-payment-source="{{ $tx->payment_source }}" 
                                                 data-amount="{{ $tx->amount }}"
@@ -4099,21 +4107,44 @@
             const searchVal = (document.getElementById('txFilterSearch')?.value || '').trim().toLowerCase();
 
             let totalIn = 0;
+            let totalOutTransferred = 0;
+            let totalOutPending = 0;
             let totalOut = 0;
             let matchCount = 0;
 
+            // Siapkan kata kunci pencarian (kata kunci "gaji" juga mengacu ke "salary", dan sebaliknya)
+            const searchTerms = [];
+            if (searchVal) {
+                searchTerms.push(searchVal);
+                if (searchVal.includes('gaji')) {
+                    searchTerms.push(searchVal.replace(/gaji/g, 'salary'));
+                }
+                if (searchVal.includes('salary')) {
+                    searchTerms.push(searchVal.replace(/salary/g, 'gaji'));
+                }
+            }
+
             rows.forEach(row => {
                 const rowType = (row.getAttribute('data-type') || '').toLowerCase();
+                const rowIsTransferred = row.getAttribute('data-is-transferred') === '1' || row.getAttribute('data-is-transferred') === 'true';
                 const rowCat = (row.getAttribute('data-category') || '').toLowerCase();
                 const rowAcc = (row.getAttribute('data-payment-source') || '').toLowerCase();
                 const rowNum = (row.getAttribute('data-number') || '').toLowerCase();
                 const rowDesc = (row.getAttribute('data-description') || '').toLowerCase();
                 const rowAmount = parseFloat(row.getAttribute('data-amount')) || 0;
 
-                const matchType = !typeVal || rowType === typeVal;
+                const matchType = !typeVal || 
+                    (typeVal === 'in' && rowType === 'in') ||
+                    (typeVal === 'out' && rowType === 'out') ||
+                    (typeVal === 'out_transferred' && rowType === 'out' && rowIsTransferred) ||
+                    (typeVal === 'out_pending' && rowType === 'out' && !rowIsTransferred) ||
+                    (rowType === typeVal);
                 const matchCat = !catVal || rowCat === catVal;
                 const matchAcc = !accVal || rowAcc === accVal;
-                const matchSearch = !searchVal || rowNum.includes(searchVal) || rowDesc.includes(searchVal) || rowCat.includes(searchVal) || rowAcc.includes(searchVal);
+                
+                // Pencarian difokuskan murni ke Keterangan dan No. Bukti sesuai label input (mendukung alias gaji & salary)
+                const matchSearch = !searchVal || 
+                    searchTerms.some(term => rowDesc.includes(term) || rowNum.includes(term));
 
                 if (matchType && matchCat && matchAcc && matchSearch) {
                     row.style.display = '';
@@ -4123,6 +4154,11 @@
                         totalIn += rowAmount;
                     } else if (rowType === 'out') {
                         totalOut += rowAmount;
+                        if (rowIsTransferred) {
+                            totalOutTransferred += rowAmount;
+                        } else {
+                            totalOutPending += rowAmount;
+                        }
                     }
                 } else {
                     row.style.display = 'none';
@@ -4133,14 +4169,19 @@
             const formatRp = (num) => 'Rp ' + new Intl.NumberFormat('id-ID').format(Math.round(num));
             
             const totalInEl = document.getElementById('txSummaryFilteredIn');
+            const totalOutTransferredEl = document.getElementById('txSummaryFilteredOutTransferred');
+            const totalOutPendingEl = document.getElementById('txSummaryFilteredOutPending');
             const totalOutEl = document.getElementById('txSummaryFilteredOut');
             const totalNetEl = document.getElementById('txSummaryFilteredNet');
             const countEl = document.getElementById('txSummaryFilteredCount');
 
             if (totalInEl) totalInEl.textContent = formatRp(totalIn);
-            if (totalOutEl) totalOutEl.textContent = formatRp(totalOut);
+            if (totalOutTransferredEl) totalOutTransferredEl.textContent = formatRp(totalOutTransferred);
+            if (totalOutPendingEl) totalOutPendingEl.textContent = formatRp(totalOutPending);
+            if (totalOutEl) totalOutEl.textContent = formatRp(totalOutTransferred);
             
-            const net = totalIn - totalOut;
+            // Net Total: Uang Masuk dikurangi Uang Keluar (yang sudah ditransfer)
+            const net = totalIn - totalOutTransferred;
             if (totalNetEl) {
                 totalNetEl.textContent = (net < 0 ? '- ' : '') + formatRp(Math.abs(net));
                 totalNetEl.style.color = net >= 0 ? '#10b981' : '#ef4444';
