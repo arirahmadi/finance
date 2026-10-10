@@ -503,12 +503,12 @@
                                 </svg>
                                 Ekspor CSV
                             </a>
-                            <a href="{{ route('web.export.transactions.xls', request()->query()) }}" class="btn btn-secondary btn-sm" style="height: 38px; display: inline-flex; align-items: center; gap: 6px;">
+                            <button type="button" onclick="exportFilteredTransactionsXls()" class="btn btn-secondary btn-sm" style="height: 38px; display: inline-flex; align-items: center; gap: 6px;" title="Ekspor Hasil Filter ke Excel (XLS)">
                                 <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                 </svg>
                                 Ekspor XLS
-                            </a>
+                            </button>
                             <button type="button" onclick="window.print()" class="btn btn-secondary btn-sm" style="height: 38px; display: inline-flex; align-items: center; gap: 6px;">
                                 <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
@@ -567,15 +567,33 @@
                                     </select>
                                 </div>
 
-                                <!-- Filter Keterangan / Cari -->
-                                <div class="form-group" style="margin-bottom: 0; min-width: 200px; flex: 1;">
-                                    <label for="txFilterSearch" class="form-label" style="font-size: 0.75rem; margin-bottom: 4px; font-weight: 600; color: var(--text-secondary);">Keterangan / No. Bukti</label>
-                                    <input type="text" id="txFilterSearch" onkeyup="filterTransactionsTable()" value="{{ request('search') }}" placeholder="Cari keterangan, No. Bukti..." class="form-input" style="padding: 8px 12px; font-size: 0.85rem; height: 38px;">
+                                <!-- Filter Keterangan / Cari (Multiple Filter dengan tombol +) -->
+                                <div class="form-group" style="margin-bottom: 0; min-width: 260px; flex: 1;">
+                                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+                                        <label for="txFilterSearch" class="form-label" style="font-size: 0.75rem; margin-bottom: 0; font-weight: 600; color: var(--text-secondary);">Keterangan / No. Bukti</label>
+                                    </div>
+                                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                                        <div style="display: flex; align-items: center; gap: 6px;">
+                                            <input type="text" id="txFilterSearch" class="form-input tx-filter-search-input" onkeyup="filterTransactionsTable()" value="{{ request('search') }}" placeholder="Cari keterangan, No. Bukti..." style="padding: 8px 12px; font-size: 0.85rem; height: 38px; flex: 1;">
+                                            <button type="button" onclick="addTxFilterSearchInput()" class="btn btn-secondary btn-sm" style="height: 38px; width: 38px; min-width: 38px; padding: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 1.25rem; font-weight: bold; border-color: rgba(59, 130, 246, 0.4); color: #60a5fa;" title="Tambah Form Filter Kata Kunci (+)">
+                                                +
+                                            </button>
+                                        </div>
+                                        <div id="txFilterAdditionalInputs" style="display: flex; flex-direction: column; gap: 6px;"></div>
+                                    </div>
                                 </div>
 
                                 <!-- Reset Button -->
                                 <button type="button" onclick="resetTransactionsFilter()" class="btn btn-secondary btn-sm" style="height: 38px; padding: 0 14px; font-size: 0.85rem;" title="Reset Filter">
                                     Reset Filter
+                                </button>
+
+                                <!-- Ekspor Filter XLS Button -->
+                                <button type="button" onclick="exportFilteredTransactionsXls()" class="btn btn-secondary btn-sm" style="height: 38px; padding: 0 14px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; border-color: rgba(16, 185, 129, 0.4); color: #34d399;" title="Ekspor Hasil Filter ke Excel (XLS)">
+                                    <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                    Ekspor Filter (XLS)
                                 </button>
                             </div>
                         </div>
@@ -673,6 +691,10 @@
                                                 data-amount="{{ $tx->amount }}"
                                                 data-number="{{ strtolower($tx->transaction_number) }}"
                                                 data-description="{{ strtolower($tx->description ?? '') }}"
+                                                data-raw-number="{{ $tx->transaction_number }}"
+                                                data-raw-date="{{ $tx->transaction_date->format('d/m/Y') }}"
+                                                data-raw-description="{{ $tx->description ?? '-' }}"
+                                                data-creator="{{ $tx->creator ?? '-' }}"
                                             >
                                                 @if (Auth::user()->hasPermission('delete_transactions'))
                                                     <td style="text-align: center;">
@@ -4096,6 +4118,37 @@
             }
         }
 
+        function addTxFilterSearchInput() {
+            const container = document.getElementById('txFilterAdditionalInputs');
+            if (!container) return;
+            const currentInputs = container.querySelectorAll('.tx-search-input-group').length;
+            if (currentInputs >= 4) {
+                alert('Maksimal 5 filter pencarian.');
+                return;
+            }
+
+            const row = document.createElement('div');
+            row.className = 'tx-search-input-group';
+            row.style.cssText = 'display: flex; align-items: center; gap: 6px;';
+            row.innerHTML = `
+                <input type="text" class="form-input tx-filter-search-input" onkeyup="filterTransactionsTable()" placeholder="Kata kunci tambahan (AND)..." style="padding: 8px 12px; font-size: 0.85rem; height: 38px; flex: 1;">
+                <button type="button" onclick="removeTxFilterSearchInput(this)" class="btn btn-secondary btn-sm" style="height: 38px; width: 38px; min-width: 38px; padding: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 1.2rem; border-color: rgba(239, 68, 68, 0.4); color: #f87171;" title="Hapus Filter Ini (&times;)">
+                    &times;
+                </button>
+            `;
+            container.appendChild(row);
+            const input = row.querySelector('input');
+            if (input) input.focus();
+        }
+
+        function removeTxFilterSearchInput(btn) {
+            const group = btn.closest('.tx-search-input-group');
+            if (group) {
+                group.remove();
+                filterTransactionsTable();
+            }
+        }
+
         function filterTransactionsTable() {
             const table = document.querySelector('#sub-section-transactions table.table');
             if (!table) return;
@@ -4104,7 +4157,11 @@
             const typeVal = (document.getElementById('txFilterType')?.value || '').toLowerCase();
             const catVal = (document.getElementById('txFilterCategory')?.value || '').toLowerCase();
             const accVal = (document.getElementById('txFilterAccount')?.value || '').toLowerCase();
-            const searchVal = (document.getElementById('txFilterSearch')?.value || '').trim().toLowerCase();
+
+            // Ambil semua input pencarian aktif (baik input utama maupun input tambahan dari tombol +)
+            const searchInputs = Array.from(document.querySelectorAll('.tx-filter-search-input'))
+                .map(input => (input.value || '').trim().toLowerCase())
+                .filter(val => val.length > 0);
 
             let totalIn = 0;
             let totalOutTransferred = 0;
@@ -4112,16 +4169,16 @@
             let totalOut = 0;
             let matchCount = 0;
 
-            // Siapkan kata kunci pencarian (kata kunci "gaji" juga mengacu ke "salary", dan sebaliknya)
-            const searchTerms = [];
-            if (searchVal) {
-                searchTerms.push(searchVal);
-                if (searchVal.includes('gaji')) {
-                    searchTerms.push(searchVal.replace(/gaji/g, 'salary'));
+            // Helper untuk ekspansi sinonim (misal gaji <-> salary)
+            function getTermVariants(word) {
+                const variants = [word];
+                if (word.includes('gaji')) {
+                    variants.push(word.replace(/gaji/g, 'salary'));
                 }
-                if (searchVal.includes('salary')) {
-                    searchTerms.push(searchVal.replace(/salary/g, 'gaji'));
+                if (word.includes('salary')) {
+                    variants.push(word.replace(/salary/g, 'gaji'));
                 }
+                return variants;
             }
 
             rows.forEach(row => {
@@ -4142,9 +4199,17 @@
                 const matchCat = !catVal || rowCat === catVal;
                 const matchAcc = !accVal || rowAcc === accVal;
                 
-                // Pencarian difokuskan murni ke Keterangan dan No. Bukti sesuai label input (mendukung alias gaji & salary)
-                const matchSearch = !searchVal || 
-                    searchTerms.some(term => rowDesc.includes(term) || rowNum.includes(term));
+                // Pencarian Keterangan / No. Bukti:
+                // Setiap form input diperlakukan sebagai syarat AND.
+                // Jika dalam 1 form input diketik lebih dari 1 kata dipisah spasi, setiap katanya juga dicocokkan (AND).
+                // Setiap kata juga otomatis mencakup sinonim (gaji <-> salary).
+                const matchSearch = searchInputs.length === 0 || searchInputs.every(inputVal => {
+                    const words = inputVal.split(/\s+/).filter(Boolean);
+                    return words.every(word => {
+                        const variants = getTermVariants(word);
+                        return variants.some(term => rowDesc.includes(term) || rowNum.includes(term));
+                    });
+                });
 
                 if (matchType && matchCat && matchAcc && matchSearch) {
                     row.style.display = '';
@@ -4199,7 +4264,150 @@
             if (document.getElementById('txFilterCategory')) document.getElementById('txFilterCategory').value = '';
             if (document.getElementById('txFilterAccount')) document.getElementById('txFilterAccount').value = '';
             if (document.getElementById('txFilterSearch')) document.getElementById('txFilterSearch').value = '';
+            const additionalContainer = document.getElementById('txFilterAdditionalInputs');
+            if (additionalContainer) additionalContainer.innerHTML = '';
             filterTransactionsTable();
+        }
+
+        function exportFilteredTransactionsXls() {
+            const table = document.querySelector('#sub-section-transactions table.table');
+            if (!table) return;
+            const rows = Array.from(table.querySelectorAll('tbody tr.tx-row'));
+
+            // Ambil semua baris yang sesuai dengan filter (tidak tersembunyi)
+            const activeRows = rows.filter(row => row.getAttribute('data-search-hidden') !== 'true');
+
+            if (activeRows.length === 0) {
+                alert('Tidak ada data transaksi yang cocok dengan filter untuk diekspor.');
+                return;
+            }
+
+            let rowsHtml = '';
+            let totalIn = 0;
+            let totalOutTransferred = 0;
+            let totalOutPending = 0;
+
+            activeRows.forEach(row => {
+                const rowType = (row.getAttribute('data-type') || '').toLowerCase();
+                const rowIsTransferred = row.getAttribute('data-is-transferred') === '1' || row.getAttribute('data-is-transferred') === 'true';
+                const rowCat = row.getAttribute('data-category') || '-';
+                const rowAcc = row.getAttribute('data-payment-source') || '-';
+                const rowNum = row.getAttribute('data-raw-number') || row.querySelector('td.tx-number')?.innerText.split('\n')[0].trim() || '';
+                const rowDate = row.getAttribute('data-raw-date') || '';
+                const rowDesc = row.getAttribute('data-raw-description') || '-';
+                const rowAmount = parseFloat(row.getAttribute('data-amount')) || 0;
+                const rowCreator = row.getAttribute('data-creator') || '-';
+
+                let jenisText = (rowType === 'in') ? 'Uang Masuk' : 'Uang Keluar';
+                let statusText = '';
+                if (rowType === 'in') {
+                    statusText = rowIsTransferred ? 'Diterima' : 'Pending';
+                    totalIn += rowAmount;
+                } else {
+                    if (rowIsTransferred) {
+                        statusText = 'Ditransfer';
+                        totalOutTransferred += rowAmount;
+                    } else {
+                        statusText = 'Pending Transfer';
+                        totalOutPending += rowAmount;
+                    }
+                }
+
+                const formatNumber = new Intl.NumberFormat('id-ID').format(Math.round(rowAmount));
+
+                rowsHtml += `
+            <tr>
+                <td class="tx-number">${escapeHtml(rowNum)}</td>
+                <td>${escapeHtml(rowDate)}</td>
+                <td>${escapeHtml(jenisText)}</td>
+                <td>${escapeHtml(rowCat)}</td>
+                <td>${escapeHtml(rowAcc)}</td>
+                <td>${escapeHtml(rowDesc)}</td>
+                <td style="text-align: right; mso-number-format:'\\#,\\#\\#0';">${formatNumber}</td>
+                <td>${escapeHtml(statusText)}</td>
+            </tr>`;
+            });
+
+            const formatNumber = (num) => new Intl.NumberFormat('id-ID').format(Math.round(num));
+            const netTotal = totalIn - totalOutTransferred;
+
+            const html = `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        table { border-collapse: collapse; width: 100%; font-family: sans-serif; font-size: 12px; }
+        th, td { border: 1px solid #000000; padding: 6px 10px; text-align: left; }
+        th { background-color: #f2f2f2; font-weight: bold; }
+        .tx-number { mso-number-format:"\\@"; }
+        .summary-row { font-weight: bold; background-color: #f9f9f9; }
+    </style>
+</head>
+<body>
+    <h2>Laporan Transaksi Keuangan</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Nomor Bukti</th>
+                <th>Tanggal</th>
+                <th>Jenis</th>
+                <th>Kategori Akun</th>
+                <th>Kas/Bank</th>
+                <th>Deskripsi/Keterangan</th>
+                <th>Nominal (Rp)</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${rowsHtml}
+        </tbody>
+        <tfoot>
+            <tr class="summary-row">
+                <td colspan="6" style="text-align: right;">Total Uang Masuk:</td>
+                <td style="text-align: right;">Rp ${formatNumber(totalIn)}</td>
+                <td></td>
+            </tr>
+            <tr class="summary-row">
+                <td colspan="6" style="text-align: right;">Total Uang Keluar (Ditransfer):</td>
+                <td style="text-align: right; color: #dc2626;">Rp ${formatNumber(totalOutTransferred)}</td>
+                <td></td>
+            </tr>
+            <tr class="summary-row">
+                <td colspan="6" style="text-align: right;">Total Pending Transfer:</td>
+                <td style="text-align: right; color: #d97706;">Rp ${formatNumber(totalOutPending)}</td>
+                <td></td>
+            </tr>
+            <tr class="summary-row" style="background-color: #e5e7eb;">
+                <td colspan="6" style="text-align: right;">Net Total (Selisih):</td>
+                <td style="text-align: right; font-weight: bold;">Rp ${formatNumber(netTotal)}</td>
+                <td></td>
+            </tr>
+        </tfoot>
+    </table>
+</body>
+</html>`;
+
+            const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+            const link = document.createElement('a');
+            const now = new Date();
+            const pad = (n) => String(n).padStart(2, '0');
+            const dateStr = now.getFullYear() + pad(now.getMonth() + 1) + pad(now.getDate()) + pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds());
+            link.href = URL.createObjectURL(blob);
+            link.download = `laporan_keuangan_${dateStr}.xls`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
         }
 
         let settlementsSortCol = -1;

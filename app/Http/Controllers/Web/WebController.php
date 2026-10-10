@@ -85,10 +85,26 @@ class WebController extends Controller
             $query->where('transaction_date', '<=', Carbon::parse($endDate)->endOfDay());
         }
         if ($searchQuery) {
-            $query->where(function($q) use ($searchQuery) {
-                $q->where('transaction_number', 'like', "%{$searchQuery}%")
-                  ->orWhere('description', 'like', "%{$searchQuery}%");
-            });
+            $words = array_filter(preg_split('/\s+/', strtolower(trim($searchQuery))));
+            if (!empty($words)) {
+                $query->where(function($q) use ($words) {
+                    foreach ($words as $word) {
+                        $wordTerms = [$word];
+                        if (str_contains($word, 'gaji')) {
+                            $wordTerms[] = str_replace('gaji', 'salary', $word);
+                        }
+                        if (str_contains($word, 'salary')) {
+                            $wordTerms[] = str_replace('salary', 'gaji', $word);
+                        }
+                        $q->where(function ($subQ) use ($wordTerms) {
+                            foreach ($wordTerms as $term) {
+                                $subQ->orWhere('transaction_number', 'like', "%{$term}%")
+                                     ->orWhere('description', 'like', "%{$term}%");
+                            }
+                        });
+                    }
+                });
+            }
         }
 
         $transactions = $query->get();
@@ -817,6 +833,10 @@ class WebController extends Controller
     {
         $startDate = $request->input('start_date');
         $endDate = $request->input('end_date');
+        $search = trim($request->input('search', ''));
+        $typeFilter = $request->input('type');
+        $categoryFilter = $request->input('category');
+        $accountFilter = $request->input('account');
 
         $query = Transaction::with(['journalEntries.account', 'attachments', 'creator'])
             ->where('is_advance', false)
@@ -832,36 +852,37 @@ class WebController extends Controller
             $query->where('transaction_date', '<=', Carbon::parse($endDate)->endOfDay());
         }
 
+        if ($search !== '') {
+            $searchLower = strtolower($search);
+            $words = array_filter(preg_split('/\s+/', $searchLower));
+            if (!empty($words)) {
+                $query->where(function ($q) use ($words) {
+                    foreach ($words as $word) {
+                        $wordTerms = [$word];
+                        if (str_contains($word, 'gaji')) {
+                            $wordTerms[] = str_replace('gaji', 'salary', $word);
+                        }
+                        if (str_contains($word, 'salary')) {
+                            $wordTerms[] = str_replace('salary', 'gaji', $word);
+                        }
+                        $q->where(function ($subQ) use ($wordTerms) {
+                            foreach ($wordTerms as $term) {
+                                $subQ->orWhere('description', 'like', "%{$term}%")
+                                     ->orWhere('transaction_number', 'like', "%{$term}%");
+                            }
+                        });
+                    }
+                });
+            }
+        }
+
         $transactions = $query->get();
 
-        $html = '<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <style>
-        table { border-collapse: collapse; width: 100%; font-family: sans-serif; }
-        th, td { border: 1px solid #000000; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; font-weight: bold; }
-        .tx-number { mso-number-format:"\@"; }
-    </style>
-</head>
-<body>
-    <h2>Laporan Transaksi Keuangan</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Nomor Bukti</th>
-                <th>Tanggal</th>
-                <th>Jenis</th>
-                <th>Kategori Akun</th>
-                <th>Kas/Bank</th>
-                <th>Deskripsi/Keterangan</th>
-                <th>Nominal (Rp)</th>
-                <th>Petugas</th>
-            </tr>
-        </thead>
-        <tbody>';
+        $totalIn = 0;
+        $totalOutTransferred = 0;
+        $totalOutPending = 0;
 
+        $rowsHtml = '';
         foreach ($transactions as $tx) {
             $type = 'unknown';
             $amount = 0;
@@ -876,9 +897,9 @@ class WebController extends Controller
                     $paymentSource = $entry->account->name;
                     $amount = floatval($entry->amount);
                     if ($entry->type === 'debit') {
-                        $type = 'Uang Masuk';
+                        $type = 'in';
                     } else {
-                        $type = 'Uang Keluar';
+                        $type = 'out';
                     }
                 } else {
                     $category = $entry->account->name;
@@ -889,19 +910,104 @@ class WebController extends Controller
                 $amount = floatval($tx->journalEntries->first()->amount);
             }
 
-            $html .= '<tr>
+            $isTransferredValue = $tx->is_reimbursement
+                ? ($tx->reimbursement_status === 'transferred')
+                : ($tx->is_transferred ? true : false);
+
+            if ($typeFilter) {
+                if ($typeFilter === 'in' && $type !== 'in') continue;
+                if ($typeFilter === 'out' && $type !== 'out') continue;
+                if ($typeFilter === 'out_transferred' && !($type === 'out' && $isTransferredValue)) continue;
+                if ($typeFilter === 'out_pending' && !($type === 'out' && !$isTransferredValue)) continue;
+            }
+
+            if ($categoryFilter && strcasecmp($category ?? '', $categoryFilter) !== 0) {
+                continue;
+            }
+
+            if ($accountFilter && strcasecmp($paymentSource ?? '', $accountFilter) !== 0) {
+                continue;
+            }
+
+            $jenisLabel = ($type === 'in') ? 'Uang Masuk' : 'Uang Keluar';
+            $statusLabel = '';
+            if ($type === 'in') {
+                $statusLabel = $isTransferredValue ? 'Diterima' : 'Pending';
+                $totalIn += $amount;
+            } else {
+                if ($isTransferredValue) {
+                    $statusLabel = 'Ditransfer';
+                    $totalOutTransferred += $amount;
+                } else {
+                    $statusLabel = 'Pending Transfer';
+                    $totalOutPending += $amount;
+                }
+            }
+
+            $rowsHtml .= '<tr>
                 <td class="tx-number">' . htmlspecialchars($tx->transaction_number) . '</td>
                 <td>' . htmlspecialchars($tx->transaction_date->format('d-m-Y')) . '</td>
-                <td>' . htmlspecialchars($type) . '</td>
+                <td>' . htmlspecialchars($jenisLabel) . '</td>
                 <td>' . htmlspecialchars($category ?? '-') . '</td>
                 <td>' . htmlspecialchars($paymentSource ?? '-') . '</td>
                 <td>' . htmlspecialchars($tx->description ?? '-') . '</td>
-                <td>' . number_format($amount, 0, ',', '.') . '</td>
-                <td>' . htmlspecialchars($tx->creator->name ?? '-') . '</td>
+                <td style="text-align: right; mso-number-format:\'\#\,\#\#0\';">' . number_format($amount, 0, ',', '.') . '</td>
+                <td>' . htmlspecialchars($statusLabel) . '</td>
             </tr>';
         }
 
-        $html .= '</tbody>
+        $netTotal = $totalIn - $totalOutTransferred;
+
+        $html = '<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        table { border-collapse: collapse; width: 100%; font-family: sans-serif; font-size: 12px; }
+        th, td { border: 1px solid #000000; padding: 6px 10px; text-align: left; }
+        th { background-color: #f2f2f2; font-weight: bold; }
+        .tx-number { mso-number-format:"\@"; }
+        .summary-row { font-weight: bold; background-color: #f9f9f9; }
+    </style>
+</head>
+<body>
+    <h2>Laporan Transaksi Keuangan</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Nomor Bukti</th>
+                <th>Tanggal</th>
+                <th>Jenis</th>
+                <th>Kategori Akun</th>
+                <th>Kas/Bank</th>
+                <th>Deskripsi/Keterangan</th>
+                <th>Nominal (Rp)</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>' . $rowsHtml . '</tbody>
+        <tfoot>
+            <tr class="summary-row">
+                <td colspan="6" style="text-align: right;">Total Uang Masuk:</td>
+                <td style="text-align: right;">Rp ' . number_format($totalIn, 0, ',', '.') . '</td>
+                <td></td>
+            </tr>
+            <tr class="summary-row">
+                <td colspan="6" style="text-align: right;">Total Uang Keluar (Ditransfer):</td>
+                <td style="text-align: right; color: #dc2626;">Rp ' . number_format($totalOutTransferred, 0, ',', '.') . '</td>
+                <td></td>
+            </tr>
+            <tr class="summary-row">
+                <td colspan="6" style="text-align: right;">Total Pending Transfer:</td>
+                <td style="text-align: right; color: #d97706;">Rp ' . number_format($totalOutPending, 0, ',', '.') . '</td>
+                <td></td>
+            </tr>
+            <tr class="summary-row" style="background-color: #e5e7eb;">
+                <td colspan="6" style="text-align: right;">Net Total (Selisih):</td>
+                <td style="text-align: right; font-weight: bold;">Rp ' . number_format($netTotal, 0, ',', '.') . '</td>
+                <td></td>
+            </tr>
+        </tfoot>
     </table>
 </body>
 </html>';
